@@ -1,0 +1,261 @@
+@use "../../styles/variables" as vars;
+
+@mixin card {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.pageContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    width: 100%;
+    padding: 20px 0;
+}
+
+.loading,
+.noData {
+    text-align: center;
+    padding: 40px;
+    color: vars.$color-text;
+    font-size: vars.$font-size-md;
+}
+
+.error {
+    color: #dc3545;
+    padding: 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 16px 0;
+    text-align: center;
+}
+
+.filtersContainer {
+    @include card;
+}
+
+.filtersHeader {
+    margin-bottom: 20px;
+
+    h3 {
+        margin: 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-lg;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.filtersContent {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.dateFilterSection {
+    .filterControls {
+        display: flex;
+        gap: 16px;
+        align-items: end;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+
+    .filterGroup {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        label {
+            font-size: vars.$font-size-sm;
+            color: vars.$color-text;
+            font-weight: vars.$font-weight-medium;
+        }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: vars.$font-size-md;
+            min-width: 160px;
+
+            &:focus {
+                outline: none;
+                border-color: vars.$color-primary;
+                box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+            }
+        }
+    }
+
+    .dateRangeInfo {
+        font-size: vars.$font-size-xs;
+        color: vars.$color-text;
+        opacity: 0.7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .selectedProductInfo {
+        color: vars.$color-primary;
+        font-weight: vars.$font-weight-medium;
+        padding: 4px 8px;
+        background: vars.$color-text-light;
+        border-radius: 4px;
+        margin-left: 12px;
+    }
+}
+
+.productFilterSection {
+    display: flex;
+    gap: 100px;
+
+    .filterGroup {
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: end;
+        gap: 6px;
+        min-width: 250px;
+
+        label {
+            font-size: vars.$font-size-sm;
+            color: vars.$color-text;
+            font-weight: vars.$font-weight-medium;
+        }
+    }
+
+    .filterButton {
+        width: 100%;
+        min-width: 250px;
+    }
+}
+
+.changeChartSection {
+    @include card;
+}
+
+.lineChartSection {
+    @include card;
+}
+
+.chartSection {
+    @include card;
+
+    h3 {
+        margin: 0 0 20px 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-lg;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.tonalityChartSection {
+    @include card;
+}
+
+.tableSection {
+    width: 100%;
+    @include card;
+}
+
+.aggregationFilter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    label {
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: vars.$color-white;
+        font-size: vars.$font-size-md;
+        min-width: 150px;
+
+        &:focus {
+            outline: none;
+            border-color: vars.$color-primary;
+            box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+        }
+    }
+
+    .recommendation {
+        font-size: vars.$font-size-xs;
+        color: vars.$color-text;
+        opacity: 0.7;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .recommendationButton {
+        background: none;
+        border: 1px solid vars.$color-primary;
+        color: vars.$color-primary;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: vars.$font-size-xs;
+        cursor: pointer;
+
+        &:hover {
+            background: vars.$color-primary;
+            color: vars.$color-white;
+        }
+    }
+}
+
+.validationWarning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-weight: 500;
+}
+
+.validationBlocked {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 20px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.globalValidationBlocked {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 20px 0;
+    text-align: center;
+    font-weight: 500;
+}
+
+.periodInfoSection {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background-color: vars.$color-background;
+    border-radius: 4px;
+    border-left: 4px solid vars.$color-primary;
+}
+
+.periodInfoText {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-chart-text;
+    font-style: italic;
+}

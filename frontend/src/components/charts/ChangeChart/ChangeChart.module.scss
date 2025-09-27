@@ -1,0 +1,93 @@
+@use "../../../styles/variables" as vars;
+
+.changeChart {
+  width: 100%;
+  padding: 24px;
+  background-color: vars.$color-white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+
+  h3 {
+    margin: 0;
+    font-size: vars.$font-size-lg;
+    font-weight: vars.$font-weight-medium;
+    color: vars.$color-text-dark;
+  }
+}
+
+.productName {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-chart-text;
+  background: vars.$color-chart-background;
+  padding: 4px 12px;
+  border-radius: 16px;
+}
+
+.chartContainer {
+  display: flex;
+  justify-content: center;
+}
+
+.circleWrapper {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.outerCircle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    background: vars.$color-white;
+    border-radius: 50%;
+    z-index: 1;
+  }
+}
+
+.innerCircle {
+  width: 115px;
+  height: 115px;
+  border-radius: 50%;
+  border: 10px solid vars.$color-primary;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: vars.$color-white;
+  position: relative;
+  z-index: 2;
+}
+
+.totalValue {
+  font-size: vars.$font-size-xl;
+  font-weight: vars.$font-weight-bold;
+  color: vars.$color-text-dark;
+}
+
+.percentValue {
+  position: absolute;
+  top: -15px;
+  right: -20px;
+  font-size: vars.$font-size-sm;
+  font-weight: vars.$font-weight-semibold;
+  z-index: 3;
+}

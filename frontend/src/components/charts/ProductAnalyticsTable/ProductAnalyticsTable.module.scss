@@ -1,0 +1,326 @@
+@use "../../../styles/variables" as vars;
+
+:export {
+  colorPrimary: vars.$color-primary;
+  colorNegative: vars.$color-sentiment-negative;
+  colorNeutral: vars.$color-sentiment-neutral;
+  colorPositive: vars.$color-sentiment-positive;
+}
+
+.tableContainer {
+  margin-top: 40px;
+  padding: 32px;
+  background: vars.$color-white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(vars.$color-black, 0.1);
+  width: 100%;
+
+  @media (max-width: 1440px) {
+    padding: 28px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 24px;
+  }
+}
+
+.tableTitle {
+  margin: 0 0 32px 0;
+  font-size: vars.$font-size-lg;
+  font-weight: vars.$font-weight-medium;
+  color: vars.$color-text;
+  font-family: vars.$font-family-base;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-2xl;
+    margin-bottom: 28px;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-xl;
+    margin-bottom: 24px;
+  }
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.table thead th {
+  border: 1px solid #e9ecef;
+  padding: 20px;
+  font-weight: vars.$font-weight-medium;
+  color: vars.$color-text-dark;
+  font-size: vars.$font-size-md;
+  font-family: vars.$font-family-base;
+  text-align: center;
+  vertical-align: top;
+
+  @media (max-width: 1440px) {
+    padding: 16px;
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 16px;
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.table thead th:first-child {
+  text-align: left;
+}
+
+.table thead th:nth-child(2) {
+  text-align: left;
+  padding-left: 32px;
+}
+
+.table thead th:nth-child(1) {
+  width: 25%;
+}
+
+.table thead th:nth-child(2) {
+  width: 15%;
+}
+
+.table thead th:nth-child(3) {
+  width: 15%;
+}
+
+.table thead th:nth-child(4) {
+  width: 35%;
+}
+
+.table thead th:nth-child(5) {
+  width: 10%;
+}
+
+.table tbody tr {
+  &:hover {
+    background-color: #f8f9fa;
+  }
+}
+
+.table tbody td {
+  border: 1px solid #e9ecef;
+  padding: 24px;
+  background: vars.$color-white;
+  transition: background-color 0.2s ease;
+
+  @media (max-width: 1440px) {
+    padding: 22px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 20px;
+  }
+}
+
+.table tbody td:first-child {
+  text-align: left;
+}
+
+.table tbody td:nth-child(2) {
+  padding-left: 32px;
+}
+
+.productName {
+  font-weight: vars.$font-weight-medium;
+  color: vars.$color-text;
+  font-size: vars.$font-size-md;
+  font-family: vars.$font-family-base;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.4;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ratingValue {
+  font-weight: vars.$font-weight-regular;
+  color: vars.$color-text;
+  font-size: vars.$font-size-md;
+  font-family: vars.$font-family-base;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.singleStar {
+  font-size: vars.$font-size-xl;
+  transition: color 0.3s ease;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-lg;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-md;
+  }
+}
+
+.changeChart,
+.countChart {
+  width: 100%;
+  display: flex;
+  align-items: center;
+
+  .chartWithValue {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+.changeChart {
+  justify-content: flex-start;
+}
+
+.countChart {
+  justify-content: center;
+}
+
+.chartWithValue {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+
+  @media (max-width: 1440px) {
+    gap: 10px;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 8px;
+  }
+}
+
+.chartBar {
+  height: 32px;
+  min-width: 20px;
+  border-radius: 0;
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+
+  @media (max-width: 1440px) {
+    height: 28px;
+  }
+
+  @media (max-width: 1200px) {
+    height: 24px;
+  }
+}
+
+.chartValue {
+  font-size: vars.$font-size-sm;
+  font-weight: vars.$font-weight-medium;
+  color: vars.$color-text;
+  font-family: vars.$font-family-base;
+  min-width: unset;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-xs;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-xs;
+    min-width: unset;
+  }
+}
+
+.tonalityCharts {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.tonalityRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 300px;
+  min-width: 200px;
+
+  @media (max-width: 1440px) {
+    min-width: 180px;
+  }
+
+  @media (max-width: 1200px) {
+    min-width: 150px;
+  }
+}
+
+.tonalityBar {
+  height: 45px;
+  border-radius: 12px 0 12px 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  padding: 0 10px;
+  min-width: 50px;
+
+  @media (max-width: 1440px) {
+    height: 40px;
+    padding: 0 8px;
+  }
+
+  @media (max-width: 1200px) {
+    height: 36px;
+    padding: 0 8px;
+  }
+}
+
+.tonalityValue {
+  font-size: vars.$font-size-xs;
+  font-weight: vars.$font-weight-regular;
+  color: vars.$color-text-dark;
+  text-align: center;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-xs;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-xs;
+  }
+}
+
+.tonalityCell {
+  vertical-align: top;
+}

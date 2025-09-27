@@ -1,0 +1,45 @@
+// Цвета
+$color-primary: #2b5ee3;
+$color-primary-hover: #1a4bbd;
+$color-secondary: #5571f8;
+$color-background: #f5f5f5;
+$color-white: #ffffff;
+$color-text: #333333;
+$color-text-light: rgba(43, 94, 227, 0.05);
+$color-text-medium: rgba(43, 94, 227, 0.1);
+$color-text-dark: #0a0a0b;
+$color-black: #000000;
+
+// Цвета для графиков тональности
+$color-sentiment-negative: #ec2b64;
+$color-sentiment-neutral: #d5d4d4;
+$color-sentiment-positive: #64ec2b;
+
+// Цвета для графика отзывов
+$color-chart-period1: #facad8;
+$color-chart-period2: #2B64EC;
+$color-chart-text: #666666;
+$color-chart-background: #f9f9f9;
+$color-chart-border: #eeeeee;
+
+// Семейства шрифтов
+$font-family-base: "Inter", sans-serif;
+$font-family-accent: "AdventPro", sans-serif;
+
+// Насыщенность шрифтов
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 800;
+
+// Размеры шрифтов
+$font-size-base: 1rem;
+$font-size-xs: 12px;
+$font-size-sm: 14px;
+$font-size-md: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-2xl: 22px;
+$font-size-3xl: 24px;
+$font-size-4xl: 28px;
+$font-size-5xl: 36px;
