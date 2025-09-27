@@ -67,11 +67,18 @@ class ProductResponse(ProductBase):
 class ReviewBase(BaseModel):
     text: NonEmptyStr
     date: date
-    product_id: int
+    product_ids: List[int]
     rating: Optional[int] = None
     sentiment: Optional[Sentiment] = None
     sentiment_score: Optional[float] = None
     source: Optional[str] = None
+
+    @field_validator("product_ids")
+    @classmethod
+    def validate_product_ids(cls, v):
+        if not v:
+            raise ValueError("At least one product ID is required")
+        return v
 
     @field_validator("rating")
     @classmethod
@@ -93,6 +100,7 @@ class ReviewCreate(ReviewBase):
 class ReviewResponse(ReviewBase):
     id: int
     created_at: datetime
+    product_ids: List[int]  # Должно быть обязательным полем
 
     class Config:
         from_attributes = True
@@ -119,6 +127,7 @@ class ClusterResponse(ClusterBase):
 class ReviewBulkItem(BaseModel):
     id: int
     text: NonEmptyStr
+    product_ids: List[int]
 
     @field_validator("text")
     @classmethod

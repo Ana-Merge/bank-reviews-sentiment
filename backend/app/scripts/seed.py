@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from app.core.db_manager import DatabaseManager, Base
 from app.models.user_models import User
 from app.models.models import (
-    Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog, NotificationConfig,
+    Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog, NotificationConfig, ReviewProduct,
     ProductType, ClientType, Sentiment, NotificationType
 )
 
@@ -126,59 +126,61 @@ async def seed_db():
 
                 # Кластеры
                 clusters = [
-                    Cluster(name="Скорость и качество клиентской поддержки", keywords=["поддержка"], description="Работа поддержки"),
-                    Cluster(name="Акции, бонусы, кэшбэк", keywords=["акция"], description="Промо"),
-                    Cluster(name="Безопасность, надежность", keywords=["безопасность"], description="Защита данных"),
-                    Cluster(name="Условия кредитования", keywords=["кредит"], description="Условия кредитов"),
-                    Cluster(name="Комиссии", keywords=["комиссия"], description="Плата за услуги"),
-                    Cluster(name="Мобильное приложение", keywords=["приложение"], description="Работа приложения"),
-                    Cluster(name="Доброжелательность", keywords=["френдли"], description="Доброжелательность работников"),
-                    Cluster(name="Отзывчивость", keywords=["отзывчивость"], description="Отзывчивость сотрудников"),
+                    Cluster(name="Скорость и удобство оформления"),
+                    Cluster(name="Комиссии и тарифы"),
+                    Cluster(name="Лимиты и ограничения"),
+                    Cluster(name="Кешбек и бонусы"),
+                    Cluster(name="Техническая поддержка"),
+                    Cluster(name="Безопасность"),
+                    Cluster(name="Доступность банкоматов"),
+                    Cluster(name="Дизайн карты"),
+                    Cluster(name="Интеграция с другими сервисами"),
+                    Cluster(name="Дополнительные услуги"),
                 ]
                 session.add_all(clusters)
                 await session.flush()
+                logger.info("Clusters seeded")
 
                 # Отзывы
-                product_id_list = [product_ids[name] for name in product_ids]
-                reviews = []
-                for product_id in product_id_list:
-                    for month in range(1, 10):  # Январь-сентябрь 2025
-                        for i in range(5):
-                            sentiment = random.choice([Sentiment.POSITIVE, Sentiment.NEUTRAL, Sentiment.NEGATIVE])
-                            sentiment_score = random.uniform(-1.0, 1.0) if sentiment == Sentiment.NEGATIVE else random.uniform(0.0, 1.0)
-                            rating = random.randint(1, 5)
-                            text = f"Отзыв {month}-{i} для продукта {product_id}: "
-                            if sentiment == Sentiment.POSITIVE:
-                                text += "Отличный сервис!"
-                            elif sentiment == Sentiment.NEUTRAL:
-                                text += "Нормально."
-                            else:
-                                text += "Плохо работает."
-                            review = Review(
-                                text=text,
-                                date=date(2025, month, random.randint(1, 28)),
-                                product_id=product_id,
-                                rating=rating,
-                                sentiment=sentiment,
-                                sentiment_score=sentiment_score,
-                                source=random.choice(["Banki.ru", "App Store", "Google Play"]),
-                                created_at=datetime.now()
-                            )
-                            reviews.append(review)
-                session.add_all(reviews)
+                reviews_list = []
+                product_mappings = {}  # temp_object_id -> list of product_ids
+                product_id_list = list(product_ids.values())
+                sources = ['Banki.ru', 'App Store', 'Google Play']
+                for _ in range(2000):
+                    num_products = random.randint(1, 3)
+                    selected_product_ids = random.sample(product_id_list, k=num_products)
+                    date_random = date(2025, random.randint(1, 9), random.randint(1, 28))
+                    rating = random.randint(1, 5)
+                    sentiment = random.choice(list(Sentiment))
+                    source = random.choice(sources)
+                    text = f"Review text mentioning products {', '.join(map(str, selected_product_ids))} on {date_random}"
+                    review = Review(text=text, date=date_random, rating=rating, sentiment=sentiment, source=source, created_at=datetime.now())
+                    product_mappings[id(review)] = selected_product_ids
+                    reviews_list.append(review)
+                session.add_all(reviews_list)
                 await session.flush()
+                logger.info("Reviews seeded")
 
-                # Связи отзывов с кластерами
+                # Добавляем связи ReviewProduct
+                for review in reviews_list:
+                    for pid in product_mappings[id(review)]:
+                        rp = ReviewProduct(review_id=review.id, product_id=pid)
+                        session.add(rp)
+                await session.flush()
+                logger.info("ReviewProduct associations seeded")
+
+                # ReviewClusters
                 review_clusters = []
-                for review in reviews:
-                    for cluster_id in range(1, len(clusters) + 1):
-                        if random.random() < 0.3:
-                            review_cluster = ReviewCluster(
-                                review_id=review.id,
-                                cluster_id=cluster_id,
-                                topic_weight=random.uniform(0.5, 1.0)
-                            )
-                            review_clusters.append(review_cluster)
+                for review in reviews_list:
+                    cluster = random.choice(clusters)
+                    review_cluster = ReviewCluster(
+                        review_id=review.id,
+                        cluster_id=cluster.id,
+                        topic_weight=random.uniform(0.5, 1.0),
+                        sentiment_contribution=random.choice(list(Sentiment)),
+                        created_at=datetime.now()
+                    )
+                    review_clusters.append(review_cluster)
                 session.add_all(review_clusters)
                 await session.flush()
                 logger.info("Review clusters seeded")
@@ -189,16 +191,17 @@ async def seed_db():
                     for month in range(1, 10):
                         month_start = date(2025, month, 1)
                         month_end = month_start + timedelta(days=28)
-                        review_count = len([r for r in reviews if r.product_id == product_id and month_start <= r.date <= month_end])
+                        relevant_reviews = [r for r in reviews_list if product_id in product_mappings[id(r)] and month_start <= r.date <= month_end]
+                        review_count = len(relevant_reviews)
                         if review_count == 0:
                             continue
-                        avg_rating = sum(r.rating for r in reviews if r.product_id == product_id and month_start <= r.date <= month_end) / review_count
-                        positive_count = len([r for r in reviews if r.product_id == product_id and month_start <= r.date <= month_end and r.sentiment == Sentiment.POSITIVE])
-                        neutral_count = len([r for r in reviews if r.product_id == product_id and month_start <= r.date <= month_end and r.sentiment == Sentiment.NEUTRAL])
-                        negative_count = len([r for r in reviews if r.product_id == product_id and month_start <= r.date <= month_end and r.sentiment == Sentiment.NEGATIVE])
+                        avg_rating = sum(r.rating for r in relevant_reviews) / review_count
+                        positive_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.POSITIVE])
+                        neutral_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.NEUTRAL])
+                        negative_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.NEGATIVE])
                         sentiment_trend = (positive_count - negative_count) / review_count if review_count > 0 else 0
                         prev_month_start = month_start - timedelta(days=28)
-                        prev_review_count = len([r for r in reviews if r.product_id == product_id and prev_month_start <= r.date < month_start])
+                        prev_review_count = len([r for r in reviews_list if product_id in product_mappings[id(r)] and prev_month_start <= r.date < month_start])
                         count_change_percent = ((review_count - prev_review_count) / prev_review_count * 100) if prev_review_count > 0 else 0
 
                         stats = MonthlyStats(
@@ -217,21 +220,29 @@ async def seed_db():
                 await session.flush()
                 logger.info("Monthly stats seeded")
 
-                # ClusterStats
+                # ClusterStats 
+                logger.info(len(clusters)) # !!!ВАЖНО, БЕЗ ЭТОГО НЕ РАБОТАЕТ!!!
                 cluster_stats = []
                 for cluster in clusters:
                     for product_id in product_id_list:
                         for month in range(1, 10):
                             month_start = date(2025, month, 1)
                             month_end = month_start + timedelta(days=28)
-                            relevant_reviews = [rc for rc in review_clusters if rc.cluster_id == cluster.id and any(r.product_id == product_id and month_start <= r.date <= month_end for r in reviews if r.id == rc.review_id)]
-                            weighted_review_count = sum(rc.topic_weight for rc in relevant_reviews) if relevant_reviews else 0
+                            relevant_review_clusters = [rc for rc in review_clusters if rc.cluster_id == cluster.id]
+                            relevant_rc = [rc for rc in relevant_review_clusters if any(r.id == rc.review_id and product_id in product_mappings[id(r)] and month_start <= r.date <= month_end for r in reviews_list)]
+                            weighted_review_count = sum(rc.topic_weight for rc in relevant_rc) if relevant_rc else 0
                             if weighted_review_count == 0:
                                 continue
-                            positive_percent = (len([rc for rc in relevant_reviews if next((r.sentiment for r in reviews if r.id == rc.review_id), None) == Sentiment.POSITIVE]) / len(relevant_reviews)) * 100
-                            neutral_percent = (len([rc for rc in relevant_reviews if next((r.sentiment for r in reviews if r.id == rc.review_id), None) == Sentiment.NEUTRAL]) / len(relevant_reviews)) * 100
-                            negative_percent = (len([rc for rc in relevant_reviews if next((r.sentiment for r in reviews if r.id == rc.review_id), None) == Sentiment.NEGATIVE]) / len(relevant_reviews)) * 100
-                            avg_rating = sum(next((r.rating for r in reviews if r.id == rc.review_id), 0) for rc in relevant_reviews) / len(relevant_reviews)
+                            # Find sentiments
+                            sentiments = [next((r.sentiment for r in reviews_list if r.id == rc.review_id), None) for rc in relevant_rc]
+                            positive_count = sentiments.count(Sentiment.POSITIVE)
+                            neutral_count = sentiments.count(Sentiment.NEUTRAL)
+                            negative_count = sentiments.count(Sentiment.NEGATIVE)
+                            total = len(relevant_rc)
+                            positive_percent = (positive_count / total) * 100 if total > 0 else 0
+                            neutral_percent = (neutral_count / total) * 100 if total > 0 else 0
+                            negative_percent = (negative_count / total) * 100 if total > 0 else 0
+                            avg_rating = sum(next((r.rating for r in reviews_list if r.id == rc.review_id), 0) for rc in relevant_rc) / total if total > 0 else 0
 
                             stats = ClusterStats(
                                 cluster_id=cluster.id,

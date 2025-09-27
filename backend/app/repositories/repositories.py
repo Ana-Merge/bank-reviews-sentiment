@@ -4,7 +4,7 @@ from sqlalchemy.sql import func as sql_func
 from typing import List, Optional, Dict
 from datetime import date
 from app.schemas.schemas import ProductTreeNode
-from app.models.models import NotificationConfig
+from app.models.models import NotificationConfig, ReviewProduct
 
 from app.core.exceptions import (
     EntityAlreadyExistsException,
@@ -144,44 +144,33 @@ class ProductRepository:
             full_cte.c.client_type,
             full_cte.c.parent_id,
             full_cte.c.level
-        ).order_by(full_cte.c.level, full_cte.c.id)
+        ).order_by(full_cte.c.level, full_cte.c.name)
 
         result = await session.execute(statement)
-        rows = result.fetchall()
+        rows = result.all()
 
-        # Построение дерева
-        tree = self._build_tree_from_rows(rows)
+        # Строим дерево
+        tree = []
+        node_dict = {row.id: dict(row._mapping) for row in rows}
+        for row in rows:
+            node = node_dict[row.id]
+            if row.parent_id is None:
+                tree.append(node)
+            else:
+                parent = node_dict[row.parent_id]
+                if 'children' not in parent:
+                    parent['children'] = []
+                parent['children'].append(node)
         return tree
 
-    def _build_tree_from_rows(self, rows: List) -> List[Dict[str, Any]]:
-        """
-        Построить дерево из плоского списка узлов.
-        """
-        nodes = {}
-        for row in rows:
-            node = {
-                "id": row[0],
-                "name": row[1],
-                "type": row[2],
-                "client_type": row[3],
-                "level": row[5],  # Убедимся, что level извлекается
-                "children": []
-            }
-            nodes[row[0]] = node
-
-        root_nodes = []
-        for row in rows:
-            node_id = row[0]
-            parent_id = row[4]
-            if parent_id is None:
-                root_nodes.append(nodes[node_id])
-            elif parent_id in nodes:
-                nodes[parent_id]["children"].append(nodes[node_id])
-
-        return root_nodes
-
-
 class ReviewRepository:
+    # Новый метод для добавления связей с продуктами
+    async def add_products_to_review(self, session: AsyncSession, review_id: int, product_ids: List[int]):
+        for pid in product_ids:
+            rp = ReviewProduct(review_id=review_id, product_id=pid)
+            session.add(rp)
+        await session.flush()
+
     async def get_by_id(self, session: AsyncSession, review_id: int) -> Review | None:
         statement = select(Review).where(Review.id == review_id)
         result = await session.execute(statement)
@@ -193,7 +182,7 @@ class ReviewRepository:
     ) -> List[Review]:
         statement = select(Review).order_by(Review.created_at.desc())
         if product_id:
-            statement = statement.where(Review.product_id == product_id)
+            statement = statement.join(ReviewProduct).where(ReviewProduct.product_id == product_id)
         if start_date:
             statement = statement.where(Review.date >= start_date)
         if end_date:
@@ -202,13 +191,46 @@ class ReviewRepository:
         result = await session.execute(statement)
         return result.scalars().all()
 
+    async def count_all(self, session: AsyncSession) -> int:
+        statement = select(sql_func.count()).select_from(Review)
+        result = await session.execute(statement)
+        return result.scalar_one()
+
+    async def save(self, session: AsyncSession, review: Review) -> Review:
+        session.add(review)
+        await session.flush()
+        await session.commit()
+        await session.refresh(review)
+        return review
+
+    async def update(self, session: AsyncSession, review: Review) -> Review:
+        await session.merge(review)
+        await session.commit()
+        await session.refresh(review)
+        return review
+
+    async def delete(self, session: AsyncSession, review_id: int) -> bool:
+        statement = select(Review).where(Review.id == review_id)
+        result = await session.execute(statement)
+        review = result.scalar_one_or_none()
+        if review:
+            await session.delete(review)
+            await session.commit()
+            return True
+        return False
+
+    async def bulk_create(self, session: AsyncSession, reviews: List[Review]) -> List[Review]:
+        session.add_all(reviews)
+        await session.flush()
+        return reviews
+
     async def count_by_product_and_period(
         self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, source: Optional[str] = None
     ) -> int:
         if not product_ids:
             return 0
-        statement = select(func.count()).select_from(Review).where(
-            Review.product_id.in_(product_ids),
+        statement = select(func.count(func.distinct(Review.id))).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids),
             Review.date >= start_date,
             Review.date <= end_date
         )
@@ -217,94 +239,86 @@ class ReviewRepository:
         result = await session.execute(statement)
         return result.scalar() or 0
 
-    async def count_by_product_and_period_and_sentiment(self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, sentiment: str, source: Optional[str] = None) -> int:
-        statement = select(func.count(Review.id)).where(
-            Review.product_id.in_(product_ids),
-            Review.date >= start_date,
-            Review.date <= end_date,
-            Review.sentiment == sentiment
-        )
-        if source:
-            statement = statement.where(Review.source == source)
-        result = await session.execute(statement)
-        return result.scalar_one() or 0
-    
-    async def get_avg_rating_by_products(
-        self, session: AsyncSession, product_ids: List[int], source: Optional[str] = None
-    ) -> float:
-        product_ids = [product_ids] if isinstance(product_ids, int) else product_ids
-        if not product_ids:
-            return 0.0
-        statement = select(func.avg(Review.rating)).where(Review.product_id.in_(product_ids))
-        if source:
-            statement = statement.where(Review.source == source)
-        result = await session.execute(statement)
-        avg_rating = result.scalar()
-        return float(avg_rating) if avg_rating else 0.0
-
-    async def get_tonality_counts_by_cluster_and_period(
-        self, session: AsyncSession, cluster_id: int, product_ids: List[int], start_date: date, end_date: date, source: Optional[str] = None
-    ) -> Dict[str, int]:
-        product_ids = [product_ids] if isinstance(product_ids, int) else product_ids
-        if not product_ids:
-            return {'positive': 0, 'neutral': 0, 'negative': 0}
-        statement = select(
-            Review.sentiment,
-            func.count(Review.id)
-        ).join(ReviewCluster).where(
-            ReviewCluster.cluster_id == cluster_id,
-            Review.product_id.in_(product_ids),
-            Review.date >= start_date,
-            Review.date <= end_date
-        )
-        if source:
-            statement = statement.where(Review.source == source)
-        statement = statement.group_by(Review.sentiment)
-        result = await session.execute(statement)
-        counts = {row[0]: row[1] for row in result.all() if row[0]}
-        return {
-            'positive': counts.get('positive', 0),
-            'neutral': counts.get('neutral', 0),
-            'negative': counts.get('negative', 0)
-        }
-
     async def get_tonality_counts_by_product_and_period(
         self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, source: Optional[str] = None
     ) -> Dict[str, int]:
         if not product_ids:
-            return {'positive': 0, 'neutral': 0, 'negative': 0}
+            return {"positive": 0, "neutral": 0, "negative": 0}
         statement = select(
             Review.sentiment,
-            func.count(Review.id)
-        ).where(
-            Review.product_id.in_(product_ids),
+            func.count(func.distinct(Review.id)).label("count")
+        ).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids),
             Review.date >= start_date,
             Review.date <= end_date
+        ).group_by(Review.sentiment)
+        if source:
+            statement = statement.where(Review.source == source)
+        result = await session.execute(statement)
+        tonality = {row[0]: row[1] for row in result.all() if row[0]}
+        return {
+            "positive": tonality.get("positive", 0),
+            "neutral": tonality.get("neutral", 0),
+            "negative": tonality.get("negative", 0)
+        }
+
+    async def get_avg_rating_by_products(
+        self, session: AsyncSession, product_ids: List[int], source: Optional[str] = None
+    ) -> float:
+        if not product_ids:
+            return 0.0
+        statement = select(
+            func.avg(Review.rating).label("avg_rating")
+        ).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids)
         )
         if source:
             statement = statement.where(Review.source == source)
-        statement = statement.group_by(Review.sentiment)
+        # Учитываем только отзывы с рейтингом
+        statement = statement.where(Review.rating.isnot(None))
         result = await session.execute(statement)
-        counts = {row[0]: row[1] for row in result.all() if row[0]}
-        return {
-            'positive': counts.get('positive', 0),
-            'neutral': counts.get('neutral', 0),
-            'negative': counts.get('negative', 0)
-        }
-    
-    async def bulk_create(self, session: AsyncSession, reviews: List[Review]) -> None:
-        session.add_all(reviews)
-    
+        avg_rating = result.scalar() or 0.0
+        return avg_rating
+
+    async def get_reviews_by_product_and_period(
+        self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date,
+        page: int = 0, size: int = 100, cluster_id: Optional[int] = None
+    ) -> List[Review]:
+        statement = select(Review).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date,
+            Review.date <= end_date
+        ).order_by(Review.date.desc()).offset(page * size).limit(size)
+        if cluster_id:
+            statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
+        result = await session.execute(statement)
+        return result.scalars().all()
+
 class ClusterRepository:
     async def get_by_id(self, session: AsyncSession, cluster_id: int) -> Cluster | None:
         statement = select(Cluster).where(Cluster.id == cluster_id)
         result = await session.execute(statement)
         return result.scalar_one_or_none()
 
+    async def get_by_name(self, session: AsyncSession, name: str) -> Cluster | None:
+        statement = select(Cluster).where(func.lower(Cluster.name) == func.lower(name))
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def exists_by_name(self, session: AsyncSession, name: str) -> bool:
+        statement = select(exists().where(func.lower(Cluster.name) == func.lower(name)))
+        result = await session.execute(statement)
+        return result.scalar()
+
     async def get_all(self, session: AsyncSession, page: int = 0, size: int = 100) -> List[Cluster]:
         statement = select(Cluster).order_by(Cluster.name).offset(page * size).limit(size)
         result = await session.execute(statement)
         return result.scalars().all()
+
+    async def count_all(self, session: AsyncSession) -> int:
+        statement = select(sql_func.count()).select_from(Cluster)
+        result = await session.execute(statement)
+        return result.scalar_one()
 
     async def save(self, session: AsyncSession, cluster: Cluster) -> Cluster:
         session.add(cluster)
@@ -313,33 +327,75 @@ class ClusterRepository:
         await session.refresh(cluster)
         return cluster
 
+    async def update(self, session: AsyncSession, cluster: Cluster) -> Cluster:
+        await session.merge(cluster)
+        await session.commit()
+        await session.refresh(cluster)
+        return cluster
+
+    async def delete(self, session: AsyncSession, cluster_id: int) -> bool:
+        statement = select(Cluster).where(Cluster.id == cluster_id)
+        result = await session.execute(statement)
+        cluster = result.scalar_one_or_none()
+        if cluster:
+            await session.delete(cluster)
+            await session.commit()
+            return True
+        return False
+
 class ReviewClusterRepository:
-    async def get_by_review_id(self, session: AsyncSession, review_id: int) -> List[ReviewCluster]:
+    async def get_by_id(self, session: AsyncSession, rc_id: int) -> ReviewCluster | None:
+        statement = select(ReviewCluster).where(ReviewCluster.id == rc_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def get_all_by_review(self, session: AsyncSession, review_id: int) -> List[ReviewCluster]:
         statement = select(ReviewCluster).where(ReviewCluster.review_id == review_id)
         result = await session.execute(statement)
         return result.scalars().all()
 
-    async def save(self, session: AsyncSession, review_cluster: ReviewCluster) -> ReviewCluster:
-        session.add(review_cluster)
+    async def get_all_by_cluster(self, session: AsyncSession, cluster_id: int) -> List[ReviewCluster]:
+        statement = select(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
+        result = await session.execute(statement)
+        return result.scalars().all()
+
+    async def save(self, session: AsyncSession, rc: ReviewCluster) -> ReviewCluster:
+        session.add(rc)
         await session.flush()
         await session.commit()
-        await session.refresh(review_cluster)
-        return review_cluster
+        await session.refresh(rc)
+        return rc
 
-    async def count_by_cluster_and_period(
-        self, session: AsyncSession, cluster_id: int, product_ids: List[int], start_date: date, end_date: date
-    ) -> float:
-        product_ids = [product_ids] if isinstance(product_ids, int) else product_ids  # Фикс для single int
-        if not product_ids:
-            return 0.0
-        statement = select(func.sum(ReviewCluster.topic_weight)).join(Review).where(
-            Review.product_id.in_(product_ids),
-            Review.date >= start_date,
-            Review.date <= end_date,
-            ReviewCluster.cluster_id == cluster_id
-        )
+    async def delete(self, session: AsyncSession, rc_id: int) -> bool:
+        statement = select(ReviewCluster).where(ReviewCluster.id == rc_id)
         result = await session.execute(statement)
-        return result.scalar() or 0.0
+        rc = result.scalar_one_or_none()
+        if rc:
+            await session.delete(rc)
+            await session.commit()
+            return True
+        return False
+
+    # Новый метод для подсчета отзывов по кластеру и периоду
+    async def count_by_cluster_and_period(
+        self, session: AsyncSession, cluster_id: int, product_ids: List[int], 
+        start_date: date, end_date: date
+    ) -> int:
+        if not product_ids:
+            return 0
+        
+        statement = select(func.count(func.distinct(Review.id))).select_from(ReviewCluster)\
+            .join(Review).join(ReviewProduct).where(
+                and_(
+                    ReviewProduct.product_id.in_(product_ids),
+                    Review.date >= start_date,
+                    Review.date <= end_date,
+                    ReviewCluster.cluster_id == cluster_id
+                )
+            )
+        
+        result = await session.execute(statement)
+        return result.scalar() or 0
 
 class MonthlyStatsRepository:
     async def get_by_product_and_month(self, session: AsyncSession, product_id: int, month: date) -> MonthlyStats | None:
@@ -349,14 +405,7 @@ class MonthlyStatsRepository:
         result = await session.execute(statement)
         return result.scalar_one_or_none()
 
-    async def save(self, session: AsyncSession, stats: MonthlyStats) -> MonthlyStats:
-        session.add(stats)
-        await session.flush()
-        await session.commit()
-        await session.refresh(stats)
-        return stats
-
-    async def get_stats_for_product(
+    async def get_by_product_and_period(
         self, session: AsyncSession, product_id: int, start_date: date, end_date: date
     ) -> List[MonthlyStats]:
         statement = select(MonthlyStats).where(
@@ -368,6 +417,13 @@ class MonthlyStatsRepository:
         ).order_by(MonthlyStats.month)
         result = await session.execute(statement)
         return result.scalars().all()
+
+    async def save(self, session: AsyncSession, stats: MonthlyStats) -> MonthlyStats:
+        session.add(stats)
+        await session.flush()
+        await session.commit()
+        await session.refresh(stats)
+        return stats
 
 class ClusterStatsRepository:
     async def get_by_cluster_and_product_and_month(

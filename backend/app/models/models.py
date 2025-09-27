@@ -35,6 +35,20 @@ class NotificationType(str, Enum):
     CLUSTER_ALERT = "cluster_alert"  # Изменение в конкретном кластере (нужен доп. cluster_id)
     # Add other types as needed
 
+
+# Новая промежуточная таблица
+class ReviewProduct(Base):
+    __tablename__ = "review_products"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    review_id: Mapped[int] = mapped_column(ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (
+        Index("idx_review_products_review_id", "review_id"),
+        Index("idx_review_products_product_id", "product_id"),
+    )
+
 # Product Model
 class Product(Base):
     __tablename__ = "products"
@@ -57,6 +71,7 @@ class Product(Base):
     )
 
     # Relationships
+    reviews = relationship("Review", secondary="review_products", back_populates="products")
     parent = relationship("Product", remote_side=[id], back_populates="children")
     children = relationship("Product", back_populates="parent")
 
@@ -67,26 +82,23 @@ class Review(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=True)
     rating: Mapped[Optional[int]] = mapped_column(Integer)
     sentiment: Mapped[Optional[Sentiment]] = mapped_column(String(20))
     sentiment_score: Mapped[Optional[float]] = mapped_column(Float)
     source: Mapped[Optional[str]] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
+    products = relationship("Product", secondary="review_products", back_populates="reviews")
+    clusters = relationship("ReviewCluster", back_populates="review")  # Без изменений
     __table_args__ = (
         CheckConstraint("rating BETWEEN 1 AND 5"),
         CheckConstraint("sentiment IN ('positive', 'neutral', 'negative')"),
         CheckConstraint("sentiment_score BETWEEN -1 AND 1"),
         Index("idx_reviews_date", "date"),
-        Index("idx_reviews_product_id", "product_id"),
         Index("idx_reviews_sentiment", "sentiment"),
         # Note: GIN index for text requires PostgreSQL-specific configuration, handled in DB creation
     )
 
-    # Relationships
-    product = relationship("Product")
-    clusters = relationship("ReviewCluster", back_populates="review")
 
 # Cluster Model
 class Cluster(Base):
