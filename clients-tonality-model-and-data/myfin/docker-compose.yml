@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  myfin_parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myfin_parser
+    volumes:
+      - ./jsons:/app/jsons
+    environment:
+      - PYTHONUNBUFFERED=1

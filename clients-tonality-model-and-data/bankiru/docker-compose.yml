@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  bankiru_parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bankiru_parser
+    volumes:
+      - ./jsons:/app/jsons
+    environment:
+      - PYTHONUNBUFFERED=1
