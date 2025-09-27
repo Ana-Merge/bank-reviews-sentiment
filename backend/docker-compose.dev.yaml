@@ -1,0 +1,26 @@
+services:
+  server:
+    build:
+      target: dev
+    ports:
+      - "5678:5678"
+    volumes:
+      - type: bind
+        source: ./clients_tonality
+        target: /clients_tonality
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "5050:5050"
+    volumes:
+      - type: bind
+        source: ./pgadmin_servers.json
+        target: /pgadmin4/servers.json
+    environment:
+      PGADMIN_LISTEN_PORT: 5050
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: qwerty12
+    depends_on:
+      database:
+        condition: service_healthy
