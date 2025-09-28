@@ -6,8 +6,9 @@ from datetime import date
 from pydantic import BaseModel
 from app.models.user_models import User
 from app.schemas.schemas import ProductTreeNode, ReviewResponse, ReviewBulkCreate, ChangeChartResponse
-from app.repositories.repositories import ProductRepository, ClusterRepository
+from app.repositories.repositories import ProductRepository, ClusterRepository, ReviewsForModelRepository
 from app.models.models import Product
+from app.services.parser_service import ParserService
 from app.models.user_models import UserRole
 from app.core.dependencies import get_current_user, DbSession, StatsServiceDep, get_db
 from app.services.stats_service import StatsService
@@ -452,7 +453,59 @@ async def get_clusters(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve clusters")
     
+@dashboards_router.post(
+    "/run-bank-parser",
+    response_model=Dict[str, Any],
+    summary="Run banki.ru parser for specific bank",
+    description="Run the parser to collect reviews for specific bank and products from banki.ru",
+    response_description="Parser execution results"
+)
+async def run_bank_parser(
+    db: DbSession,
+    bank_slug: str = Query(..., description="Bank slug (e.g., gazprombank, sberbank)"),
+    products: List[str] = Query(..., description="List of products to parse (e.g., debitcards, deposits, credits)"),
+    start_date: Optional[str] = Query(None, description="Start date for filtering (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date for filtering (YYYY-MM-DD)"),
+    max_pages: int = Query(100, description="Maximum number of pages to parse per product"),
+    delay: float = Query(1.0, description="Delay between requests in seconds"),
+    parser_service: ParserService = Depends(lambda: ParserService(ReviewsForModelRepository()))
+):
+    """
+    Запуск парсера banki.ru для сбора отзывов по конкретному банку.
 
+    **Что передавать**:
+    - **Параметры запроса**:
+      - `bank_slug`: Slug банка (обязательно, например: "gazprombank")
+      - `products`: Список продуктов (обязательно, например: ["debitcards", "deposits"])
+      - `start_date`: Начальная дата фильтрации (опционально, формат: YYYY-MM-DD)
+      - `end_date`: Конечная дата фильтрации (опционально, формат: YYYY-MM-DD)
+      - `max_pages`: Максимальное количество страниц (по умолчанию 100)
+      - `delay`: Задержка между запросами в секундах (по умолчанию 1.0)
+
+    **Что получите в ответе**:
+    - **Код 200 OK**: Результаты работы парсера.
+      - **Формат JSON**:
+        ```json
+        {
+          "status": "success",
+          "bank_slug": "gazprombank",
+          "products_processed": ["debitcards", "deposits"],
+          "total_reviews_parsed": 1500,
+          "total_saved": 1500,
+          "start_date": "2025-01-01",
+          "end_date": "2025-09-17",
+          "message": "Successfully parsed and saved 1500 reviews for bank gazprombank"
+        }
+        ```
+    """
+    try:
+        result = await parser_service.run_parser(
+            db, bank_slug, products, start_date, end_date, max_pages, delay
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
+    
 @dashboards_router.post(
     "/reviews",
     response_model=Dict[str, Any],

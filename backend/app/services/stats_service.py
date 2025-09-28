@@ -8,11 +8,11 @@ from calendar import monthrange
 from sqlalchemy import select
 from app.repositories.repositories import (
     ProductRepository, ReviewRepository, MonthlyStatsRepository, ClusterStatsRepository,
-    ClusterRepository, ReviewClusterRepository, ReviewCluster, Review
+    ClusterRepository, ReviewClusterRepository, ReviewCluster, Review, ReviewsForModelRepository
 )
 from app.models.user_models import User
 from app.schemas.schemas import ReviewResponse, ClusterResponse, ReviewBulkCreate
-from app.models.models import ProductType, Sentiment, ReviewProduct
+from app.models.models import ProductType, Sentiment, ReviewProduct, ReviewsForModel
 
 class StatsService:
     def __init__(
@@ -23,6 +23,7 @@ class StatsService:
         cluster_stats_repo: ClusterStatsRepository,
         cluster_repo: ClusterRepository,
         review_cluster_repo: ReviewClusterRepository,
+        reviews_for_model_repo: ReviewsForModelRepository,
     ):
         self._product_repo = product_repo
         self._review_repo = review_repo
@@ -30,6 +31,7 @@ class StatsService:
         self._cluster_stats_repo = cluster_stats_repo
         self._cluster_repo = cluster_repo
         self._review_cluster_repo = review_cluster_repo
+        self._reviews_for_model_repo = reviews_for_model_repo
 
     async def get_product_stats(
         self, 
@@ -499,27 +501,107 @@ class StatsService:
             "changes": changes
         }
 
+    # async def get_monthly_pie_chart(
+    #     self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
+    #     start_date2: str, end_date2: str, source: Optional[str] = None
+    # ) -> Dict[str, Any]:
+    #     def parse_date(date_str: str) -> date:
+    #         try:
+    #             return datetime.strptime(date_str, "%Y-%m-%d").date()
+    #         except ValueError as e:
+    #             raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
+
+    #     try:
+    #         start_date_parsed = parse_date(start_date)
+    #         end_date_parsed = parse_date(end_date)
+    #         start_date2_parsed = parse_date(start_date2)
+    #         end_date2_parsed = parse_date(end_date2)
+    #     except ValueError as e:
+    #         raise ValueError(str(e))
+
+    #     if start_date_parsed > end_date_parsed:
+    #         raise ValueError("start_date must be before or equal to end_date")
+    #     if start_date2_parsed > end_date2_parsed:
+    #         raise ValueError("start_date2 must be before or equal to end_date2")
+
+    #     product = await self._product_repo.get_by_id(session, product_id)
+    #     if not product:
+    #         return {
+    #             "period1": {"labels": [], "data": [], "colors": [], "total": 0},
+    #             "period2": {"labels": [], "data": [], "colors": [], "total": 0},
+    #             "changes": {"labels": [], "percentage_point_changes": []}
+    #         }
+
+    #     if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
+    #         descendants = await self._product_repo.get_all_descendants(session, product_id)
+    #         product_ids = [p.id for p in descendants] + [product_id]
+    #     else:
+    #         product_ids = [product_id]
+
+    #     total1 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
+    #     tonality1 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
+    #     if total1 > 0:
+    #         data1 = [
+    #             round(tonality1.get('negative', 0) / total1 * 100, 1),
+    #             round(tonality1.get('neutral', 0) / total1 * 100, 1),
+    #             round(tonality1.get('positive', 0) / total1 * 100, 1)
+    #         ]
+    #     else:
+    #         data1 = [0.0, 0.0, 0.0]
+
+    #     total2 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
+    #     tonality2 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
+    #     if total2 > 0:
+    #         data2 = [
+    #             round(tonality2.get('negative', 0) / total2 * 100, 1),
+    #             round(tonality2.get('neutral', 0) / total2 * 100, 1),
+    #             round(tonality2.get('positive', 0) / total2 * 100, 1)
+    #         ]
+    #     else:
+    #         data2 = [0.0, 0.0, 0.0]
+
+    #     percentage_point_changes = [data1[i] - data2[i] for i in range(3)]
+    #     labels = ["negative", "neutral", "positive"]
+    #     colors = ["red", "yellow", "green"]
+
+    #     return {
+    #         "period1": {"labels": labels, "data": data1, "colors": colors, "total": total1},
+    #         "period2": {"labels": labels, "data": data2, "colors": colors, "total": total2},
+    #         "changes": {"labels": labels, "percentage_point_changes": percentage_point_changes}
+    #     }
+
     async def get_monthly_pie_chart(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
         start_date2: str, end_date2: str, source: Optional[str] = None
     ) -> Dict[str, Any]:
-        def parse_date(date_str: str) -> date:
+
+        def parse_date(date_str: str, is_start_date: bool) -> datetime.date:
+            """Parse date string in YYYY-MM-DD or YYYY-MM format."""
             try:
-                return datetime.strptime(date_str, "%Y-%m-%d").date()
+                if len(date_str.split("-")) == 2:
+                    year, month = map(int, date_str.split("-"))
+                    if is_start_date:
+                        parsed_date = datetime(year, month, 1).date()
+                    else:
+                        _, last_day = monthrange(year, month)
+                        parsed_date = datetime(year, month, last_day).date()
+                else:
+                    parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
+                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD or YYYY-MM") from e
 
         try:
-            start_date_parsed = parse_date(start_date)
-            end_date_parsed = parse_date(end_date)
-            start_date2_parsed = parse_date(start_date2)
-            end_date2_parsed = parse_date(end_date2)
+            start_date_parsed = parse_date(start_date, is_start_date=True)
+            end_date_parsed = parse_date(end_date, is_start_date=False)
+            start_date2_parsed = parse_date(start_date2, is_start_date=True) if start_date2 else None
+            end_date2_parsed = parse_date(end_date2, is_start_date=False) if end_date2 else None
         except ValueError as e:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
             raise ValueError("start_date must be before or equal to end_date")
-        if start_date2_parsed > end_date2_parsed:
+        if start_date2_parsed and end_date2_parsed and start_date2_parsed > end_date2_parsed:
             raise ValueError("start_date2 must be before or equal to end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
@@ -527,46 +609,148 @@ class StatsService:
             return {
                 "period1": {"labels": [], "data": [], "colors": [], "total": 0},
                 "period2": {"labels": [], "data": [], "colors": [], "total": 0},
-                "changes": {"labels": [], "percentage_point_changes": []}
+                "changes": {"labels": [], "percentage_point_changes": [], "relative_percentage_changes": []}
             }
-
+        
         if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
             descendants = await self._product_repo.get_all_descendants(session, product_id)
             product_ids = [p.id for p in descendants] + [product_id]
         else:
             product_ids = [product_id]
 
-        total1 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
-        tonality1 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
-        if total1 > 0:
-            data1 = [
-                round(tonality1.get('negative', 0) / total1 * 100, 1),
-                round(tonality1.get('neutral', 0) / total1 * 100, 1),
-                round(tonality1.get('positive', 0) / total1 * 100, 1)
+        clusters = await self._cluster_repo.get_all(session)
+        if not clusters:
+            return {
+                "period1": {"labels": [], "data": [], "colors": [], "total": 0},
+                "period2": {"labels": [], "data": [], "colors": [], "total": 0},
+                "changes": {"labels": [], "percentage_point_changes": [], "relative_percentage_changes": []}
+            }
+
+        cluster_names = [c.name for c in clusters]
+        cluster_ids = [c.id for c in clusters]
+        colors = [self._get_color_for_cluster(c.id) for c in clusters]
+
+        # Total for period1
+        period1_total_query = select(func.count(func.distinct(Review.id)).label("total")) \
+            .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
+            .where(
+                ReviewProduct.product_id.in_(product_ids),
+                Review.date >= start_date_parsed,
+                Review.date <= end_date_parsed
+            )
+        if source:
+            period1_total_query = period1_total_query.where(Review.source == source)
+        period1_total_result = await session.execute(period1_total_query)
+        period1_total = period1_total_result.scalar() or 0
+
+        # Counts per cluster for period1
+        period1_query = select(
+            ReviewCluster.cluster_id,
+            func.count(func.distinct(Review.id)).label("count")
+        ).join(Review, ReviewCluster.review_id == Review.id) \
+        .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
+        .where(
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date_parsed,
+            Review.date <= end_date_parsed,
+            ReviewCluster.cluster_id.in_(cluster_ids)
+        )
+        if source:
+            period1_query = period1_query.where(Review.source == source)
+        period1_query = period1_query.group_by(ReviewCluster.cluster_id)
+        period1_result = await session.execute(period1_query)
+        period1_data = period1_result.all()
+
+        period1_counts = {c.id: 0 for c in clusters}
+        for row in period1_data:
+            period1_counts[row.cluster_id] = row.count
+        period1_percentages = [
+            round((period1_counts[c.id] / period1_total * 100), 1) if period1_total > 0 else 0.0
+            for c in clusters
+        ]
+
+        period2_total = 0
+        period2_percentages = [0.0] * len(clusters)
+        if start_date2_parsed and end_date2_parsed:
+            # Total for period2
+            period2_total_query = select(func.count(func.distinct(Review.id)).label("total")) \
+                .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
+                .where(
+                    ReviewProduct.product_id.in_(product_ids),
+                    Review.date >= start_date2_parsed,
+                    Review.date <= end_date2_parsed
+                )
+            if source:
+                period2_total_query = period2_total_query.where(Review.source == source)
+            period2_total_result = await session.execute(period2_total_query)
+            period2_total = period2_total_result.scalar() or 0
+
+            # Counts per cluster for period2
+            period2_query = select(
+                ReviewCluster.cluster_id,
+                func.count(func.distinct(Review.id)).label("count")
+            ).join(Review, ReviewCluster.review_id == Review.id) \
+            .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
+            .where(
+                ReviewProduct.product_id.in_(product_ids),
+                Review.date >= start_date2_parsed,
+                Review.date <= end_date2_parsed,
+                ReviewCluster.cluster_id.in_(cluster_ids)
+            )
+            if source:
+                period2_query = period2_query.where(Review.source == source)
+            period2_query = period2_query.group_by(ReviewCluster.cluster_id)
+            period2_result = await session.execute(period2_query)
+            period2_data = period2_result.all()
+
+            period2_counts = {c.id: 0 for c in clusters}
+            for row in period2_data:
+                period2_counts[row.cluster_id] = row.count
+            period2_percentages = [
+                round((period2_counts[c.id] / period2_total * 100), 1) if period2_total > 0 else 0.0
+                for c in clusters
             ]
-        else:
-            data1 = [0.0, 0.0, 0.0]
 
-        total2 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
-        tonality2 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
-        if total2 > 0:
-            data2 = [
-                round(tonality2.get('negative', 0) / total2 * 100, 1),
-                round(tonality2.get('neutral', 0) / total2 * 100, 1),
-                round(tonality2.get('positive', 0) / total2 * 100, 1)
-            ]
-        else:
-            data2 = [0.0, 0.0, 0.0]
+        # Calculate percentage point changes (absolute difference)
+        percentage_point_changes = [
+            round(period2_percentages[i] - period1_percentages[i], 1)
+            for i in range(len(clusters))
+        ]
 
-        percentage_point_changes = [data1[i] - data2[i] for i in range(3)]
-        labels = ["negative", "neutral", "positive"]
-        colors = ["red", "yellow", "green"]
+        # Calculate relative percentage changes (growth)
+        relative_percentage_changes = []
+        for i in range(len(clusters)):
+            p1 = period1_percentages[i]
+            p2 = period2_percentages[i]
+            if p1 > 0:
+                change = round(((p2 - p1) / p1) * 100, 1)
+            elif p2 > 0:
+                change = 100.0  # Arbitrary value for new clusters
+            else:
+                change = 0.0
+            relative_percentage_changes.append(change)
 
-        return {
-            "period1": {"labels": labels, "data": data1, "colors": colors, "total": total1},
-            "period2": {"labels": labels, "data": data2, "colors": colors, "total": total2},
-            "changes": {"labels": labels, "percentage_point_changes": percentage_point_changes}
+        result = {
+            "period1": {
+                "labels": cluster_names,
+                "data": period1_percentages,
+                "colors": colors,
+                "total": int(period1_total)
+            },
+            "period2": {
+                "labels": cluster_names,
+                "data": period2_percentages,
+                "colors": colors,
+                "total": int(period2_total)
+            },
+            "changes": {
+                "labels": cluster_names,
+                "percentage_point_changes": percentage_point_changes,
+                "relative_percentage_changes": relative_percentage_changes
+            }
         }
+
+        return result
 
     async def get_change_chart(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
@@ -1439,37 +1623,59 @@ class StatsService:
         logging.basicConfig(level=logging.DEBUG)
         logger = logging.getLogger(__name__)
 
-        logger.debug(f"Creating {len(reviews_data.data)} reviews")
+        logger.debug(f"Creating {len(reviews_data.data)} reviews for model processing")
 
-        # Проверяем существование всех product_ids
         all_product_ids = set()
         for item in reviews_data.data:
             all_product_ids.update(item.product_ids)
+        
         existing_products = await self._product_repo.get_all(session, size=len(all_product_ids))
         existing_product_ids = {p.id for p in existing_products}
         invalid_product_ids = all_product_ids - existing_product_ids
         if invalid_product_ids:
             raise HTTPException(status_code=400, detail=f"Invalid product IDs: {invalid_product_ids}")
 
-        reviews = [
-            Review(
+        reviews_for_model = [
+            ReviewsForModel(
                 text=item.text,
-                date=datetime.utcnow().date(),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
+                processed=False
             ) for item in reviews_data.data
         ]
 
         try:
-            reviews = await self._review_repo.bulk_create(session, reviews)
-            for i, review in enumerate(reviews):
-                await self._review_repo.add_products_to_review(session, review.id, reviews_data.data[i].product_ids)
+            reviews_for_model = await self._reviews_for_model_repo.bulk_create(session, reviews_for_model)
+            
             await session.commit()
-            logger.debug(f"Successfully created {len(reviews)} reviews")
-            return {"status": "success", "created_count": len(reviews)}
+            logger.debug(f"Successfully created {len(reviews_for_model)} reviews in reviews_for_model table")
+            
+            return {
+                "status": "success", 
+                "created_count": len(reviews_for_model),
+                "message": "Reviews saved for model processing. They will be added to main reviews table after model analysis."
+            }
         except Exception as e:
             await session.rollback()
-            logger.error(f"Error creating reviews: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error creating reviews: {str(e)}")
+            logger.error(f"Error creating reviews for model: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error creating reviews for model processing: {str(e)}")
+        
+    
+    async def get_unprocessed_reviews_for_model(
+        self, session: AsyncSession, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Получить необработанные отзывы для нейронной модели
+        """
+        unprocessed_reviews = await self._reviews_for_model_repo.get_unprocessed(session, limit)
+        
+        return [
+            {
+                "id": review.id,
+                "text": review.text,
+                "created_at": review.created_at
+            }
+            for review in unprocessed_reviews
+        ]
 
     def _get_color_for_cluster(self, cluster_id: int) -> str:
         colors = ["blue", "cyan", "pink", "purple", "green"]

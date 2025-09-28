@@ -1,8 +1,8 @@
-from sqlalchemy import exists, func, select, and_, case, cast, Float, literal, Any
+from sqlalchemy import exists, func, select, and_, case, cast, Float, literal, Any, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func as sql_func
 from typing import List, Optional, Dict
-from datetime import date
+from datetime import date, datetime
 from app.schemas.schemas import ProductTreeNode
 from app.models.models import NotificationConfig, ReviewProduct
 
@@ -12,7 +12,7 @@ from app.core.exceptions import (
 )
 from app.models.models import (
     Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog,
-    Sentiment, ProductType, ClientType
+    Sentiment, ProductType, ClientType, ReviewsForModel
 )
 from app.schemas.schemas import (
     ProductCreate, ReviewCreate, ClusterCreate, ReviewClusterCreate,
@@ -534,6 +534,101 @@ class NotificationConfigRepository:
         statement = select(NotificationConfig).where(NotificationConfig.active == True)
         result = await session.execute(statement)
         return result.scalars().all()
+    
+
+class ReviewsForModelRepository:
+    async def get_by_id(self, session: AsyncSession, review_id: int) -> ReviewsForModel | None:
+        statement = select(ReviewsForModel).where(ReviewsForModel.id == review_id)
+        result = await session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def get_all(self, session: AsyncSession, page: int = 0, size: int = 100, 
+                     processed: Optional[bool] = None, category: Optional[str] = None) -> List[ReviewsForModel]:
+        statement = select(ReviewsForModel).order_by(ReviewsForModel.parsed_at.desc())
+        
+        if processed is not None:
+            statement = statement.where(ReviewsForModel.processed == processed)
+        if category:
+            statement = statement.where(ReviewsForModel.category == category)
+            
+        statement = statement.offset(page * size).limit(size)
+        result = await session.execute(statement)
+        return result.scalars().all()
+
+    async def get_unprocessed(self, session: AsyncSession, limit: int = 100) -> List[ReviewsForModel]:
+        statement = select(ReviewsForModel).where(ReviewsForModel.processed == False).order_by(ReviewsForModel.parsed_at).limit(limit)
+        result = await session.execute(statement)
+        return result.scalars().all()
+
+    async def count_all(self, session: AsyncSession) -> int:
+        statement = select(sql_func.count()).select_from(ReviewsForModel)
+        result = await session.execute(statement)
+        return result.scalar_one()
+
+    async def save(self, session: AsyncSession, review: ReviewsForModel) -> ReviewsForModel:
+        session.add(review)
+        await session.flush()
+        await session.commit()
+        await session.refresh(review)
+        return review
+
+    async def bulk_create(self, session: AsyncSession, reviews: List[ReviewsForModel]) -> List[ReviewsForModel]:
+        session.add_all(reviews)
+        await session.flush()
+        return reviews
+
+    async def save_parsed_reviews(self, session: AsyncSession, reviews: List[Dict], product: str) -> int:
+        """Сохранить данные из парсера в базу"""
+        reviews_to_save = []
+        
+        for review_data in reviews:
+            review = ReviewsForModel(
+                bank_name=review_data.get('bank_name', ''),
+                bank_slug=review_data.get('bank_slug', ''),
+                product_name=product,
+                review_theme=review_data.get('review_theme', ''),
+                rating=review_data.get('rating', ''),
+                verification_status=review_data.get('verification_status', ''),
+                review_text=review_data.get('review_text', ''),
+                review_date=review_data.get('review_date', ''),
+                review_timestamp=review_data.get('review_timestamp'),
+                source_url=review_data.get('source_url', ''),
+                parsed_at=datetime.utcnow(),
+                processed=False
+            )
+            reviews_to_save.append(review)
+        
+        if reviews_to_save:
+            await self.bulk_create(session, reviews_to_save)
+            await session.commit()
+        
+        return len(reviews_to_save)
+
+    async def mark_as_processed(self, session: AsyncSession, review_id: int) -> bool:
+        statement = select(ReviewsForModel).where(ReviewsForModel.id == review_id)
+        result = await session.execute(statement)
+        review = result.scalar_one_or_none()
+        if review:
+            review.processed = True
+            await session.commit()
+            return True
+        return False
+
+    async def mark_bulk_as_processed(self, session: AsyncSession, review_ids: List[int]) -> bool:
+        statement = update(ReviewsForModel).where(ReviewsForModel.id.in_(review_ids)).values(processed=True)
+        await session.execute(statement)
+        await session.commit()
+        return True
+
+    async def delete(self, session: AsyncSession, review_id: int) -> bool:
+        statement = select(ReviewsForModel).where(ReviewsForModel.id == review_id)
+        result = await session.execute(statement)
+        review = result.scalar_one_or_none()
+        if review:
+            await session.delete(review)
+            await session.commit()
+            return True
+        return False
     
 class AuditLogRepository:
     async def save(self, session: AsyncSession, user_id: Optional[int], action: str) -> AuditLog:

@@ -13,12 +13,13 @@ from app.services.auth_services import (
     TokenService,
 )
 from app.services.stats_service import StatsService
+from app.services.parser_service import ParserService
 from app.services.notification_service import NotificationService
 from app.repositories.user_repositories import UserRepository
 from app.repositories.repositories import (
     ProductRepository, ReviewRepository, MonthlyStatsRepository,
     ClusterRepository, ReviewClusterRepository, ClusterStatsRepository,
-    NotificationRepository, AuditLogRepository, NotificationConfigRepository
+    NotificationRepository, AuditLogRepository, NotificationConfigRepository, ReviewsForModelRepository
 )
 from app.core.exceptions import (
     AppException,
@@ -91,6 +92,8 @@ def _setup_app_dependencies(app: FastAPI, settings: AppSettings):
     notification_repository = NotificationRepository()
     audit_log_repository = AuditLogRepository()
     notification_config_repository = NotificationConfigRepository()
+    reviews_for_model_repository = ReviewsForModelRepository()
+
 
     logger.info("Initializing services")
     password_service = PasswordService()
@@ -101,12 +104,13 @@ def _setup_app_dependencies(app: FastAPI, settings: AppSettings):
     app.state.auth_service = auth_service
 
     stats_service = StatsService(
-        product_repo=product_repository,
-        review_repo=review_repository,
-        monthly_stats_repo=monthly_stats_repository,
-        cluster_stats_repo=cluster_stats_repository,
-        cluster_repo=cluster_repository,
-        review_cluster_repo=review_cluster_repository,
+    product_repo=product_repository,
+    review_repo=review_repository,
+    monthly_stats_repo=monthly_stats_repository,
+    cluster_stats_repo=cluster_stats_repository,
+    cluster_repo=cluster_repository,
+    review_cluster_repo=review_cluster_repository,
+    reviews_for_model_repo=reviews_for_model_repository,
     )
     app.state.stats_service = stats_service
 
@@ -119,6 +123,8 @@ def _setup_app_dependencies(app: FastAPI, settings: AppSettings):
         monthly_stats_repo=monthly_stats_repository,
     )
     app.state.notification_service = notification_service
+    parser_service = ParserService(reviews_for_model_repository)
+    app.state.parser_service = parser_service
 
 @asynccontextmanager
 async def _app_lifespan(app: FastAPI):

@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, Date, Float, Boolean, JSON, Text,
-    CheckConstraint, Enum, TIMESTAMP, Index
+    CheckConstraint, Enum, TIMESTAMP, Index, DateTime
 )
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -220,6 +220,34 @@ class NotificationConfig(Base):
     # Relationships
     user = relationship("User")
     product = relationship("Product")
+
+# ReviewsForModel Model - для хранения сырых отзывов с парсера
+# ReviewsForModel Model - для хранения сырых отзывов с парсера
+class ReviewsForModel(Base):
+    __tablename__ = "reviews_for_model"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bank_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)  # gazprombank, sberbank и т.д.
+    product_name: Mapped[str] = mapped_column(String(100), nullable=False)  # debitcards, deposits и т.д.
+    review_theme: Mapped[str] = mapped_column(String(200), nullable=True)
+    rating: Mapped[str] = mapped_column(String(20), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(100), nullable=True)
+    review_text: Mapped[str] = mapped_column(Text, nullable=False)
+    review_date: Mapped[str] = mapped_column(String(50), nullable=True)  # "17.09.2025 08:45"
+    review_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # Для фильтрации по дате
+    source_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    parsed_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    __table_args__ = (
+        Index("idx_reviews_for_model_parsed_at", "parsed_at"),
+        Index("idx_reviews_for_model_processed", "processed"),
+        Index("idx_reviews_for_model_bank_slug", "bank_slug"),
+        Index("idx_reviews_for_model_product_name", "product_name"),
+        Index("idx_reviews_for_model_review_timestamp", "review_timestamp"),
+        Index("idx_reviews_for_model_bank_product", "bank_slug", "product_name"),
+    )
 
 # AuditLog Model
 class AuditLog(Base):
