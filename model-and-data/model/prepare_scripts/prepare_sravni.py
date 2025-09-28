@@ -8,7 +8,7 @@ import gc
 import random
 import ijson  # Для потокового парсинга
 
-# Определение дерева тегов (оставлено для возможного использования в будущем, но не используется для pseudo_topic)
+# Определение дерева тегов
 tag_tree = {
     'Эквайринг': None,
     'Автокредиты': ['На автомобиль'],
@@ -39,7 +39,30 @@ tag_tree = {
     'Условия обслуживания': None
 }
 
-# Функция предобработки текста (нижний регистр + очистка, без лемматизации)
+# Словарь для перевода тем из Sravni.ru в темы Banki.ru
+translation_dict = {
+    "savings": "deposits",
+    "debitcards": "debitcards",
+    "servicelevel": "individual",
+    "remoteservice": "remote",
+    "creditcards": "creditcards",
+    "credits": "credits",
+    "other": "other",
+    "currencyexchange": "currencyexchange",
+    "mortgage": "hypothec",
+    "autocredits": "autocredits",
+    "mobilnoyeprilozheniye": "mobile_app",
+    "usloviya": "usloviya",
+    "creditrefinancing": "creditrefinancing",
+    "mortgagerefinancing": "mortgagerefinancing",
+    "businessrko": "",
+    "acquiring": "",
+    "businesscredits": "",
+    "moneyorder": "moneyorder",
+    "unknown": "unknown"  # Для случаев, когда reviewTag отсутствует или не распознается
+}
+
+# Функция предобработки текста
 def preprocess_text(text):
     if not isinstance(text, str):
         return ''
@@ -66,36 +89,43 @@ def filter_review(review, filters, start_date, end_date):
         allowed = filter_dict.get('allowed', [])
         disallowed = filter_dict.get('disallowed', [])
         if allowed and str(value) not in [str(x) for x in allowed]:
+            # print(f"Отфильтровано по {field} (allowed): {value}")
             return True  # Skip
         if disallowed and str(value) in [str(x) for x in disallowed]:
+            # print(f"Отфильтровано по {field} (disallowed): {value}")
             return True  # Skip
     # Фильтр по дате
-    date_str = review.get('date', '')
+    date_str = review.get('review_date', '')
+    if not date_str:
+        # print(f"Отфильтровано по отсутствию даты: {date_str}")
+        return True  # Skip если дата отсутствует
     try:
-        review_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        if start_date and review_date < start_date:
+        review_date = datetime.strptime(date_str, '%d.%m.%Y %H:%M')
+        if start_date and review_date < start_date.replace(tzinfo=None):  # Сравниваем без часового пояса
+            # print(f"Отфильтровано по дате (раньше start_date): {date_str}")
             return True
-        if end_date and review_date > end_date:
+        if end_date and review_date > end_date.replace(tzinfo=None):  # Сравниваем без часового пояса
+            # print(f"Отфильтровано по дате (позже end_date): {date_str}")
             return True
     except ValueError:
+        # print(f"Отфильтровано по невалидной дате: {date_str}")
         return True  # Skip invalid date
     return False  # Keep
 
 # Функция для обновления статистики
 def update_stats(review, counters, sum_rating_product, sum_rating_bank, sum_rating_product_bank):
-    topic = review['pseudo_topic']
+    topic = review['topic']
     bank = review['bank_name']
-    rating_str = str(review['rating'])
-    theme = review.get('title', 'unknown')
-    text = review['text']
-    date_str = review['date']
-    rating = float(rating_str) if rating_str.isdigit() else 0.0
+    rating = float(review['rating']) if review['rating'] and str(review['rating']).isdigit() else 0.0
+    theme = review.get('review_theme', 'unknown')
+    text = review['review_text']
+    date_str = review['review_date']
     is_long = len(text) > 200
     
     year = None
     month = None
     try:
-        date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        date_obj = datetime.strptime(date_str, '%d.%m.%Y %H:%M')
         year = date_obj.year
         month = date_obj.strftime('%Y-%m')
     except ValueError:
@@ -105,7 +135,7 @@ def update_stats(review, counters, sum_rating_product, sum_rating_bank, sum_rati
     counters['product_count'][topic] += 1
     counters['bank_count'][bank] += 1
     counters['product_per_bank'][bank][topic] += 1
-    counters['rating_count'][rating_str] += 1
+    counters['rating_count'][str(rating)] += 1
     sum_rating_product[topic] += rating
     sum_rating_bank[bank] += rating
     sum_rating_product_bank[bank][topic] += rating
@@ -144,7 +174,7 @@ def save_stats(counters, sum_rating_product, sum_rating_bank, sum_rating_product
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(stats, f, ensure_ascii=False, indent=4)
 
-# Функция для обработки JSON-файла потоково
+# Функция для обработки JSON-файла
 def process_json_reviews(json_file, filters, start_date, end_date, output_dir, is_gazprom=False, subsample=None):
     seen_hashes = set()
     
@@ -180,35 +210,47 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, i
          open(duplicates_path, 'a', encoding='utf-8') as f_dup, \
          open(json_file, 'rb') as f:  # binary для ijson
         
-        items = ijson.items(f, 'items.item')  # Потоковый итератор по items
+        items = ijson.items(f, 'items.item')  # Корректный парсинг списка items
         processed = 0
         for item in items:
             processed += 1
             if subsample and processed > subsample:
                 break
             
+            # Дебаг для проверки считывания
+            # print(f"Обработка отзыва: {item}")
+            
+            # Определение topic
+            raw_topic = item.get('reviewTag', 'unknown').lower()
+            topic = translation_dict.get(raw_topic, raw_topic) if raw_topic in translation_dict else 'other'
+            if not topic:
+                topic = 'other'
+            
+            # Преобразование даты из ISO 8601 в нужный формат
+            date_iso = item.get('date', '1970-01-01T00:00:00Z')
+            try:
+                date_obj = datetime.fromisoformat(date_iso.replace('Z', '+00:00'))
+                review_date = date_obj.strftime('%d.%m.%Y %H:%M')
+            except ValueError:
+                review_date = '01.01.1970 00:00'
+            
+            # Формирование отзыва с новыми полями
             review = {
-                'text': item.get('text', 'unknown'),
-                'title': item.get('title', 'unknown'),
-                'rating': item.get('rating', 0),
                 'bank_name': item.get('bank_name', 'Другие банки') if not is_gazprom else 'Газпромбанк',
-                'date': item.get('date', ''),
-                'pseudo_topic': item.get('reviewTag', 'unknown'),  # Используем reviewTag напрямую как product
-                'pseudo_sentiment': map_sentiment(item.get('rating', 0)),
-                'preprocessed_text': preprocess_text(item.get('title', 'unknown') + ' ' + item.get('text', 'unknown')),
-                'verification_status': item.get('ratingStatus', 'unknown')
+                'review_theme': item.get('title', 'unknown'),
+                'rating': item.get('rating', 0),  # Сохраняем как число
+                'verification_status': item.get('ratingStatus', 'unknown'),
+                'review_text': item.get('text', 'unknown'),
+                'review_date': review_date,
+                'topic': topic
             }
             
             # Фильтрация
             if filter_review(review, filters, start_date, end_date):
                 continue
             
-            # Отключено для отладки
-            # if len(review['preprocessed_text']) <= 20:
-            #     continue
-            
             # Хэш
-            unique_str = f"{review['text']}|{review['date']}|{review['bank_name']}|{str(review['rating'])}"
+            unique_str = f"{review['review_text']}|{review['review_date']}|{review['bank_name']}|{str(review['rating'])}"
             review_hash = hashlib.sha256(unique_str.encode('utf-8')).hexdigest()
             
             if review_hash in seen_hashes:
@@ -267,7 +309,8 @@ def prepare_data(process_gazprom=True, process_all_banks=True,
 
 if __name__ == "__main__":
     example_filters = {
-        # 'rating': {'disallowed': [0]},  # Пропускать отзывы с рейтингом 0
-        # 'verification_status': {'allowed': ['rateChecking', 'approved']},  # Реальные значения из ratingStatus
+        # 'rating': {'disallowed': [0]},
+        'topic': {'disallowed': [""]},
+        # 'verification_status': {'allowed': ['rateChecking', 'approved']},
     }
     prepare_data(process_gazprom=True, process_all_banks=True, filters=example_filters)
