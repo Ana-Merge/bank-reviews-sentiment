@@ -1,0 +1,174 @@
+@use "../../styles/variables" as vars;
+
+@mixin card {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.pageContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    width: 100%;
+    padding: 20px 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: vars.$color-text;
+    font-size: vars.$font-size-md;
+}
+
+.error {
+    @include card;
+    color: #dc3545;
+    text-align: center;
+
+    h2 {
+        margin: 0 0 15px 0;
+        color: #dc3545;
+    }
+
+    p {
+        margin: 0 0 20px 0;
+    }
+}
+
+.pageHeader {
+    @include card;
+    background: vars.$color-primary;
+    color: white;
+}
+
+.headerContent {
+    h1 {
+        margin: 0 0 15px 0;
+        font-size: vars.$font-size-xl;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.pageMeta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.chartsCount,
+.pageStatus {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+}
+
+.pageContent {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chartsSection {
+    @include card;
+}
+
+.sectionHeader {
+    margin-bottom: 20px;
+
+    h3 {
+        margin: 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-lg;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.chartsList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.chartCard {
+    background: vars.$color-background;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid vars.$color-primary;
+    transition: transform 0.2s;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+}
+
+.chartName {
+    margin: 0 0 10px 0;
+    color: vars.$color-text-dark;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+}
+
+.chartInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chartType,
+.chartProduct {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-text;
+
+    &:before {
+        content: "• ";
+        color: vars.$color-primary;
+        font-weight: bold;
+    }
+}
+
+.emptyState {
+    @include card;
+    text-align: center;
+}
+
+.emptyContent {
+    padding: 40px 20px;
+
+    h3 {
+        margin: 0 0 15px 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-lg;
+    }
+
+    p {
+        margin: 8px 0;
+        color: vars.$color-text;
+        line-height: 1.5;
+    }
+}
+
+.actionsSection {
+    @include card;
+    text-align: center;
+}
+
+.backButton {
+    padding: 12px 24px;
+    background-color: vars.$color-primary;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: vars.$font-size-md;
+    cursor: pointer;
+    transition: background-color 0.3s;
+
+    &:hover {
+        background-color: #0056b3;
+    }
+}

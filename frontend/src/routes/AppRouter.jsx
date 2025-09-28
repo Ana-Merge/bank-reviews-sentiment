@@ -6,6 +6,7 @@ import NotFoundPage from "../pages/NotFoundPage";
 import { MyDashboardsPage } from "../pages";
 
 const ProductPage = lazy(() => import("../pages/ProductPage/ProductPage"));
+const DashboardPage = lazy(() => import("../pages/DashboardPage/DashboardPage"));
 
 const AppRouter = createBrowserRouter([
   {
@@ -70,6 +71,14 @@ const AppRouter = createBrowserRouter([
         element: (
           <Suspense fallback={<LoadingSpinner />}>
             <MyDashboardsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "dashboard/:pageId",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <DashboardPage />
           </Suspense>
         ),
       },

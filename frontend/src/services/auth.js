@@ -70,4 +70,23 @@ export const authService = {
             body: JSON.stringify(config),
         });
     },
+
+    async createDashboardPage(token, pageData) {
+        return request("/v1/user_dashboards/pages", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify(pageData),
+        });
+    },
+
+    async deleteDashboardPage(token, pageId) {
+        return request(`/v1/user_dashboards/pages/${pageId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+        });
+    },
 };
