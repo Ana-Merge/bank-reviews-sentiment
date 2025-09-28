@@ -22,6 +22,8 @@ class ChartAttributes(BaseModel):
     date_start_2: Optional[date] = None
     date_end_2: Optional[date] = None
     product_id: str | int
+    source: str  # Новое поле: источник данных для графика
+    aggregation_type: str  # Новое поле: тип агрегации данных
 
     @field_validator("product_id")
     def validate_product_id(cls, v):
@@ -63,7 +65,7 @@ class LoginCredentials(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
-        if len(v) < 6:
+        if len(v) < 5:
             raise ValueError("Password too short")
         return v
 
