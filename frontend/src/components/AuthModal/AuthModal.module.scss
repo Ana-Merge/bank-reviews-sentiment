@@ -1,0 +1,172 @@
+@use "../../styles/variables" as vars;
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modalContent {
+    background: vars.$color-white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 400px;
+    max-width: 90vw;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.closeButton {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: vars.$color-text;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+
+    &:hover {
+        background: vars.$color-background;
+    }
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #eee;
+}
+
+.tab {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: vars.$font-size-md;
+    color: vars.$color-text;
+    border-bottom: 2px solid transparent;
+
+    &.active {
+        color: vars.$color-primary;
+        border-bottom-color: vars.$color-primary;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    &:hover {
+        background: vars.$color-background;
+    }
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    input {
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: vars.$font-size-md;
+
+        &:focus {
+            outline: none;
+            border-color: vars.$color-primary;
+            box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+        }
+    }
+}
+
+.passwordError {
+    color: #dc3545;
+    font-size: vars.$font-size-xs;
+    margin-top: 4px;
+}
+
+.sessionExpired {
+    background: #fff3cd;
+    color: #856404;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: vars.$font-size-sm;
+    border: 1px solid #ffeaa7;
+    text-align: center;
+
+    small {
+        font-size: vars.$font-size-xs;
+        opacity: 0.8;
+        margin-top: 5px;
+        display: block;
+    }
+}
+
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: vars.$font-size-sm;
+    border: 1px solid #f5c6cb;
+}
+
+.submitButton {
+    background: vars.$color-primary;
+    color: vars.$color-white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+
+    &:hover:not(:disabled) {
+        background: vars.$color-primary-hover;
+    }
+
+    &:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+}
+
+.cancelButton {
+    background: transparent;
+    color: vars.$color-text;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: vars.$font-size-sm;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background: vars.$color-background;
+        border-color: vars.$color-text;
+    }
+}

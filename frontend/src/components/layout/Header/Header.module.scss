@@ -131,6 +131,42 @@
   }
 }
 
+.accountSection {
+  display: flex;
+  align-items: center;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 16px;
+  background: vars.$color-background;
+  border-radius: 8px;
+}
+
+.userName {
+  font-size: vars.$font-size-md;
+  color: vars.$color-text;
+  font-weight: vars.$font-weight-medium;
+}
+
+.logoutBtn {
+  background: none;
+  border: 1px solid vars.$color-primary;
+  color: vars.$color-primary;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: vars.$font-size-sm;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: vars.$color-primary;
+    color: vars.$color-white;
+  }
+}
+
 .cityWrapper {
   font-family: vars.$font-family-base;
   font-weight: vars.$font-weight-medium;
