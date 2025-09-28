@@ -1,26 +1,14 @@
-import pandas as pd
-import numpy as np
-from datetime import datetime
-import re
 import os
 import json
-from datetime import timezone
-import pymorphy3
-from html import unescape
-import warnings
+import hashlib
+import re
+from collections import defaultdict, Counter
+from datetime import datetime, timezone
 import gc
+import random
+import ijson  # Для потокового парсинга
 
-# Подавление предупреждения о pkg_resources (если нужно)
-warnings.filterwarnings("ignore", category=UserWarning, module="pkg_resources")
-
-# Инициализация лемматизатора
-morph = pymorphy3.MorphAnalyzer()
-
-# Шаг 1: Подготовка данных
-# Этот скрипт загружает данные из JSON-файлов, фильтрует по дате,
-# предобрабатывает текст (с лемматизацией) и сохраняет только необходимые поля.
-
-# 1.1. Определение дерева тегов
+# Определение дерева тегов (оставлено для возможного использования в будущем, но не используется для pseudo_topic)
 tag_tree = {
     'Эквайринг': None,
     'Автокредиты': ['На автомобиль'],
@@ -51,29 +39,18 @@ tag_tree = {
     'Условия обслуживания': None
 }
 
-# Создаем обратный mapping для specificProductName/reviewTag -> top_tag
-product_to_tag = {}
-for tag, products in tag_tree.items():
-    if products:
-        for prod in products:
-            product_to_tag[prod.lower()] = tag
-    product_to_tag[tag.lower()] = tag
-
-# 1.2. Функция для предобработки текста с лемматизацией
+# Функция предобработки текста (нижний регистр + очистка, без лемматизации)
 def preprocess_text(text):
     if not isinstance(text, str):
         return ''
-    text = unescape(text)  # Очистка HTML-entities
     text = text.lower()
-    text = re.sub(r'[^a-zа-я0-9\s]', ' ', text)  # Удаление всего кроме букв, цифр, пробелов
+    text = re.sub(r'[^a-zа-я0-9\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    words = text.split()
-    lemmatized = [morph.parse(word)[0].normal_form for word in words]
-    return ' '.join(lemmatized)
+    return text
 
-# 1.3. Функция для маппинга сентимента
+# Функция маппинга сентимента
 def map_sentiment(rating):
-    if pd.isna(rating) or rating == 0:
+    if rating is None or rating == 0:
         return 'unknown'
     elif rating <= 2:
         return 'отрицательно'
@@ -82,219 +59,215 @@ def map_sentiment(rating):
     else:
         return 'положительно'
 
-# Функция для фильтрации DataFrame по параметрам
-def filter_data(df, filters=None, start_date=None, end_date=None):
-    if filters is None:
-        filters = {}
-    mask = pd.Series(True, index=df.index)
-    for param, values in filters.items():
-        allowed = values.get('allowed', [])
-        disallowed = values.get('disallowed', [])
-        if allowed:
-            mask &= df[param].isin(allowed)
-        if disallowed:
-            mask &= ~df[param].isin(disallowed)
-    if start_date:
-        mask &= df['date'] >= start_date
-    if end_date:
-        mask &= df['date'] <= end_date
-    return df[mask]
+# Функция фильтрации отзыва
+def filter_review(review, filters, start_date, end_date):
+    for field, filter_dict in filters.items():
+        value = review.get(field, '')
+        allowed = filter_dict.get('allowed', [])
+        disallowed = filter_dict.get('disallowed', [])
+        if allowed and str(value) not in [str(x) for x in allowed]:
+            return True  # Skip
+        if disallowed and str(value) in [str(x) for x in disallowed]:
+            return True  # Skip
+    # Фильтр по дате
+    date_str = review.get('date', '')
+    try:
+        review_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        if start_date and review_date < start_date:
+            return True
+        if end_date and review_date > end_date:
+            return True
+    except ValueError:
+        return True  # Skip invalid date
+    return False  # Keep
 
-# Функция для подсчета и сохранения статистики
-def save_statistics(df, output_path, is_all_banks=False):
-    stats = {}
+# Функция для обновления статистики
+def update_stats(review, counters, sum_rating_product, sum_rating_bank, sum_rating_product_bank):
+    topic = review['pseudo_topic']
+    bank = review['bank_name']
+    rating_str = str(review['rating'])
+    theme = review.get('title', 'unknown')
+    text = review['text']
+    date_str = review['date']
+    rating = float(rating_str) if rating_str.isdigit() else 0.0
+    is_long = len(text) > 200
     
-    # Статистика по оценкам (rating)
-    if 'rating' in df.columns:
-        rating_counts = df['rating'].value_counts().to_dict()
-        stats['rating_counts'] = rating_counts
+    year = None
+    month = None
+    try:
+        date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        year = date_obj.year
+        month = date_obj.strftime('%Y-%m')
+    except ValueError:
+        pass
     
-    # Статистика по тегам (pseudo_topic)
-    if 'pseudo_topic' in df.columns:
-        topic_counts = df['pseudo_topic'].value_counts().to_dict()
-        stats['topic_counts'] = topic_counts
-    
-    # Если all_banks, статистика по банкам
-    if is_all_banks and 'bank_name' in df.columns:
-        bank_stats = {}
-        for bank in df['bank_name'].unique():
-            bank_df = df[df['bank_name'] == bank]
-            bank_rating_counts = bank_df['rating'].value_counts().to_dict() if 'rating' in bank_df.columns else {}
-            bank_topic_counts = bank_df['pseudo_topic'].value_counts().to_dict() if 'pseudo_topic' in bank_df.columns else {}
-            bank_stats[bank] = {
-                'rating_counts': bank_rating_counts,
-                'topic_counts': bank_topic_counts
-            }
-        stats['bank_stats'] = bank_stats
-    
-    # Сохраняем статистику в JSON
+    counters['total'] += 1
+    counters['product_count'][topic] += 1
+    counters['bank_count'][bank] += 1
+    counters['product_per_bank'][bank][topic] += 1
+    counters['rating_count'][rating_str] += 1
+    sum_rating_product[topic] += rating
+    sum_rating_bank[bank] += rating
+    sum_rating_product_bank[bank][topic] += rating
+    if year:
+        counters['date_year_count'][year] += 1
+    if month:
+        counters['date_month_count'][month] += 1
+    if is_long:
+        counters['long_reviews'] += 1
+    counters['themes'][theme] += 1
+
+# Функция для расчёта средней
+def calculate_avg(sum_dict, count_dict):
+    return {k: sum_dict[k] / count_dict[k] if count_dict[k] > 0 else 0 for k in count_dict}
+
+# Функция для расчёта средней по nested
+def calculate_nested_avg(sum_nested, count_nested):
+    return {bank: calculate_avg(sum_nested[bank], count_nested[bank]) for bank in count_nested}
+
+# Функция для сохранения статистики
+def save_stats(counters, sum_rating_product, sum_rating_bank, sum_rating_product_bank, output_path):
+    stats = {
+        'total': counters['total'],
+        'product_count': dict(counters['product_count']),
+        'bank_count': dict(counters['bank_count']),
+        'product_per_bank': {bank: dict(counters['product_per_bank'][bank]) for bank in counters['product_per_bank']},
+        'rating_count': dict(counters['rating_count']),
+        'avg_rating_per_product': calculate_avg(sum_rating_product, counters['product_count']),
+        'avg_rating_per_bank': calculate_avg(sum_rating_bank, counters['bank_count']),
+        'avg_rating_per_product_bank': calculate_nested_avg(sum_rating_product_bank, counters['product_per_bank']),
+        'date_year_count': dict(counters['date_year_count']),
+        'date_month_count': dict(counters['date_month_count']),
+        'long_reviews_count': counters['long_reviews'],
+        'top_themes': counters['themes'].most_common(10)
+    }
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(stats, f, ensure_ascii=False, indent=4)
+
+# Функция для обработки JSON-файла потоково
+def process_json_reviews(json_file, filters, start_date, end_date, output_dir, is_gazprom=False, subsample=None):
+    seen_hashes = set()
     
-    print(f"Статистика сохранена в {output_path}")
-
-# 1.4. Обработка данных Газпромбанка
-def process_gazprom_data(gazprom_file='model/data/reviews/gazprom_reviews.json', filters=None, start_date=None, end_date=None):
-    # Загрузка данных Газпромбанка
-    with open(gazprom_file, 'r', encoding='utf-8') as f:
-        gazprom_data = pd.json_normalize(json.load(f)['items'])
-    gazprom_data['date'] = pd.to_datetime(gazprom_data['date'], format='ISO8601', errors='coerce')
-    invalid_dates = gazprom_data[gazprom_data['date'].isna()]['date']
-    if not invalid_dates.empty:
-        print(f"Найдены некорректные даты: {invalid_dates.tolist()}")
-    gazprom_data = gazprom_data.dropna(subset=['date'])
-
-    # Заполнение NaN в ключевых столбцах
-    gazprom_data['title'] = gazprom_data['title'].fillna('unknown')
-    gazprom_data['text'] = gazprom_data['text'].fillna('unknown')
-    gazprom_data['rating'] = gazprom_data['rating'].fillna(0)
-    gazprom_data['specificProductName'] = gazprom_data['specificProductName'].fillna('unknown')
-    gazprom_data['reviewTag'] = gazprom_data['reviewTag'].fillna('unknown')
-    gazprom_data['bank_name'] = 'Газпромбанк'
-    gazprom_data['isAuthorDeleted'] = gazprom_data['isAuthorDeleted'].fillna(False)
-    gazprom_data['isRecommendedByUser'] = gazprom_data['isRecommendedByUser'].fillna(False)
-    gazprom_data['userDataStatus'] = gazprom_data['userDataStatus'].fillna('unknown')
-
-    # Обработка данных (лемматизация, сентимент, тема)
-    gazprom_data['full_text'] = gazprom_data['title'] + ' ' + gazprom_data['text']
-    gazprom_data['preprocessed_text'] = gazprom_data['full_text'].apply(preprocess_text)
-    gazprom_data['pseudo_sentiment'] = gazprom_data['rating'].apply(map_sentiment)
-    gazprom_data['pseudo_topic'] = gazprom_data['specificProductName'].str.lower().map(product_to_tag).fillna(
-        gazprom_data['reviewTag'].str.lower().map(product_to_tag)).fillna('Прочее')
-    if 'preprocessed_text' not in gazprom_data.columns:
-        print(f"Столбец 'preprocessed_text' отсутствует. Доступные столбцы: {gazprom_data.columns.tolist()}")
-        raise KeyError("Отсутствует столбец 'preprocessed_text' после обработки")
-    gazprom_data.drop_duplicates(subset=['id', 'preprocessed_text'], inplace=True)
-    gazprom_data = gazprom_data[gazprom_data['preprocessed_text'].str.len() > 20]
-
-    # Фильтрация по параметрам (если указаны)
-    gazprom_data = filter_data(gazprom_data, filters, start_date, end_date)
-
-    # Фильтрация по дате после обработки (если не указан в filters)
-    if start_date is None:
-        start_date = datetime(2024, 1, 1).replace(tzinfo=timezone.utc)
-    if end_date is None:
-        end_date = datetime(2025, 5, 31).replace(tzinfo=timezone.utc)
-    df_recent = gazprom_data[(gazprom_data['date'] >= start_date) & (gazprom_data['date'] <= end_date)]
-    df_historical = gazprom_data[~gazprom_data.index.isin(df_recent.index)]
-
-
-    # Новые файлы: with_specificProductName и without_specificProductName
-    df_with_specific = gazprom_data[gazprom_data['specificProductName'] != 'unknown']
-    df_without_specific = gazprom_data[gazprom_data['specificProductName'] == 'unknown']
-
-    # Создание отдельного файла только с отзывами, где есть оценка (pseudo_sentiment != 'unknown')
-    df_with_rating = gazprom_data[gazprom_data['pseudo_sentiment'] != 'unknown']
-
-    # Выбор только необходимых столбцов для основных файлов
-    required_columns = ['preprocessed_text', 'pseudo_sentiment', 'pseudo_topic', 'date', 'bank_name']
-    # print(f"Столбцы в gazprom_data: {gazprom_data.columns.tolist()}")  # Отладка
-    gazprom_data = gazprom_data[required_columns]
-    # print(f"Столбцы в df_recent до фильтрации: {df_recent.columns.tolist()}")  # Отладка
-    df_recent = df_recent[required_columns]
-    df_historical = df_historical[required_columns]
-    df_with_specific = df_with_specific[required_columns]
-    df_without_specific = df_without_specific[required_columns]
-    df_with_rating = df_with_rating[required_columns]  # Для файла с оценками
-
-    # Сохранение результатов
-    os.makedirs('model/data/processed', exist_ok=True)
-    gazprom_data.to_csv('model/data/processed/processed_gazprom.csv', index=False)
-    df_recent.to_csv('model/data/processed/recent_gazprom.csv', index=False)
-    df_historical.to_csv('model/data/processed/historical_gazprom.csv', index=False)
-    df_with_specific.to_csv('model/data/processed/with_specificProductName_gazprom.csv', index=False)
-    df_without_specific.to_csv('model/data/processed/without_specificProductName_gazprom.csv', index=False)
-    df_with_rating.to_csv('model/data/processed/processed_gazprom_with_rating.csv', index=False)  # Новый файл
-
-    # Подсчет и сохранение статистики
-    save_statistics(gazprom_data, 'model/data/processed/stats_gazprom.json', is_all_banks=False)
-
-    # Очистка памяти
-    del gazprom_data, df_recent, df_historical, df_with_specific, df_without_specific, df_with_rating
+    # Инициализация статистики
+    unique_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                       'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                       'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews': 0, 
+                       'themes': Counter()}
+    unique_sum_rating_product = defaultdict(float)
+    unique_sum_rating_bank = defaultdict(float)
+    unique_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
+    dup_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                    'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                    'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews': 0, 
+                    'themes': Counter()}
+    dup_sum_rating_product = defaultdict(float)
+    dup_sum_rating_bank = defaultdict(float)
+    dup_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
+    all_reviews_path = os.path.join(output_dir, 'all_reviews.jsonl')
+    gazprom_reviews_path = os.path.join(output_dir, 'gazprom_reviews.jsonl')
+    duplicates_path = os.path.join(output_dir, 'duplicates.jsonl')
+    
+    # Проверка существования входного файла
+    if not os.path.exists(json_file):
+        print(f"Файл {json_file} не существует")
+        return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
+                dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+    
+    with open(all_reviews_path, 'a', encoding='utf-8') as f_all, \
+         open(gazprom_reviews_path, 'a', encoding='utf-8') as f_gazprom, \
+         open(duplicates_path, 'a', encoding='utf-8') as f_dup, \
+         open(json_file, 'rb') as f:  # binary для ijson
+        
+        items = ijson.items(f, 'items.item')  # Потоковый итератор по items
+        processed = 0
+        for item in items:
+            processed += 1
+            if subsample and processed > subsample:
+                break
+            
+            review = {
+                'text': item.get('text', 'unknown'),
+                'title': item.get('title', 'unknown'),
+                'rating': item.get('rating', 0),
+                'bank_name': item.get('bank_name', 'Другие банки') if not is_gazprom else 'Газпромбанк',
+                'date': item.get('date', ''),
+                'pseudo_topic': item.get('reviewTag', 'unknown'),  # Используем reviewTag напрямую как product
+                'pseudo_sentiment': map_sentiment(item.get('rating', 0)),
+                'preprocessed_text': preprocess_text(item.get('title', 'unknown') + ' ' + item.get('text', 'unknown')),
+                'verification_status': item.get('ratingStatus', 'unknown')
+            }
+            
+            # Фильтрация
+            if filter_review(review, filters, start_date, end_date):
+                continue
+            
+            # Отключено для отладки
+            # if len(review['preprocessed_text']) <= 20:
+            #     continue
+            
+            # Хэш
+            unique_str = f"{review['text']}|{review['date']}|{review['bank_name']}|{str(review['rating'])}"
+            review_hash = hashlib.sha256(unique_str.encode('utf-8')).hexdigest()
+            
+            if review_hash in seen_hashes:
+                update_stats(review, dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+                json.dump(review, f_dup, ensure_ascii=False)
+                f_dup.write('\n')
+            else:
+                seen_hashes.add(review_hash)
+                update_stats(review, unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank)
+                json.dump(review, f_all, ensure_ascii=False)
+                f_all.write('\n')
+                if review['bank_name'] == 'Газпромбанк':
+                    json.dump(review, f_gazprom, ensure_ascii=False)
+                    f_gazprom.write('\n')
+    
+    print(f"Файл {json_file}: обработано отзывов: {processed}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}")
     gc.collect()
+    return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
+            dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
 
-
-# 1.5. Обработка данных всех банков (с учетом памяти: загрузка чанками, если нужно, но pd.json_normalize обычно справляется)
-def process_all_banks_data(all_banks_file='model/data/reviews/all_reviews.json', subsample_all=None, filters=None, start_date=None, end_date=None):
-    # Загрузка данных всех банков (для большого файла используем chunks, но json_normalize не поддерживает chunks напрямую,
-    # поэтому загружаем весь JSON, но обрабатываем по частям если subsample
-    with open(all_banks_file, 'r', encoding='utf-8') as f:
-        all_data = json.load(f)['items']
-    
-    # Если subsample, берем случайную подвыборку
-    if subsample_all:
-        import random
-        random.seed(42)
-        all_data = random.sample(all_data, min(subsample_all, len(all_data)))
-    
-    all_banks_data = pd.json_normalize(all_data)
-    del all_data  # Освобождаем память от списка
-    gc.collect()
-    
-    all_banks_data['date'] = pd.to_datetime(all_banks_data['date'], format='ISO8601', errors='coerce')
-    invalid_dates_all = all_banks_data[all_banks_data['date'].isna()]['date']
-    if not invalid_dates_all.empty:
-        print(f"Найдены некорректные даты в all_banks: {invalid_dates_all.tolist()}")
-    all_banks_data = all_banks_data.dropna(subset=['date'])
-
-    # Заполнение NaN в all_banks_data
-    all_banks_data['title'] = all_banks_data['title'].fillna('unknown')
-    all_banks_data['text'] = all_banks_data['text'].fillna('unknown')
-    all_banks_data['rating'] = all_banks_data['rating'].fillna(0)
-    all_banks_data['specificProductName'] = all_banks_data['specificProductName'].fillna('unknown')
-    all_banks_data['reviewTag'] = all_banks_data['reviewTag'].fillna('unknown')
-    all_banks_data['bank_name'] = all_banks_data['bank_name'].fillna('Другие банки')
-    all_banks_data['isAuthorDeleted'] = all_banks_data['isAuthorDeleted'].fillna(False)
-    all_banks_data['isRecommendedByUser'] = all_banks_data['isRecommendedByUser'].fillna(False)
-    all_banks_data['userDataStatus'] = all_banks_data['userDataStatus'].fillna('unknown')
-
-    # Обработка данных (чтобы сэкономить память, применяем apply по частям, если нужно, но pandas обычно ок)
-    all_banks_data['full_text'] = all_banks_data['title'] + ' ' + all_banks_data['text']
-    all_banks_data['preprocessed_text'] = all_banks_data['full_text'].apply(preprocess_text)
-    all_banks_data['pseudo_sentiment'] = all_banks_data['rating'].apply(map_sentiment)
-    all_banks_data['pseudo_topic'] = all_banks_data['specificProductName'].str.lower().map(product_to_tag).fillna(
-        all_banks_data['reviewTag'].str.lower().map(product_to_tag)).fillna('Прочее')
-    if 'preprocessed_text' not in all_banks_data.columns:
-        print(f"Столбец 'preprocessed_text' отсутствует. Доступные столбцы: {all_banks_data.columns.tolist()}")
-        raise KeyError("Отсутствует столбец 'preprocessed_text' после обработки")
-    all_banks_data.drop_duplicates(subset=['id', 'preprocessed_text'], inplace=True)
-    all_banks_data = all_banks_data[all_banks_data['preprocessed_text'].str.len() > 20]
-
-    # Фильтрация по параметрам (если указаны)
-    all_banks_data = filter_data(all_banks_data, filters, start_date, end_date)
-
-    # Создание отдельного файла только с отзывами, где есть оценка (pseudo_sentiment != 'unknown')
-    df_with_rating = all_banks_data[all_banks_data['pseudo_sentiment'] != 'unknown']
-
-    # Выбор только необходимых столбцов
-    required_columns = ['preprocessed_text', 'pseudo_sentiment', 'pseudo_topic', 'date', 'bank_name']
-    all_banks_data = all_banks_data[required_columns]
-    df_with_rating = df_with_rating[required_columns]
-
-    # Сохранение результатов
-    os.makedirs('model/data/processed', exist_ok=True)
-    all_banks_data.to_csv('model/data/processed/aux_all_banks.csv', index=False)
-    df_with_rating.to_csv('model/data/processed/aux_all_banks_with_rating.csv', index=False)  # Новый файл
-
-    # Подсчет и сохранение статистики (с groupby, чтобы не дублировать df)
-    save_statistics(all_banks_data, 'model/data/processed/stats_all_banks.json', is_all_banks=True)
-
-    # Очистка памяти
-    del all_banks_data, df_with_rating
-    gc.collect()
-
-
-# 1.6. Главная функция для запуска
+# Главная функция
 def prepare_data(process_gazprom=True, process_all_banks=True,
-                 gazprom_file='model/data/reviews/gazprom_reviews.json',
-                 all_banks_file='model/data/reviews/all_reviews.json',
-                 subsample_all=None,  # Убрали дефолт 50000, чтобы обработать все, но можно указать для теста
+                 gazprom_file='data/sravni_raw/gazprom_reviews.json',
+                 all_banks_file='data/sravni_raw/all_reviews.json',
+                 subsample_all=None,
                  filters=None, start_date=None, end_date=None):
+    if filters is None:
+        filters = {}
+    
+    # Дефолтные даты (offset-aware)
+    if start_date is None:
+        start_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    if end_date is None:
+        end_date = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    
+    output_dir = 'data/processed/sravni'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Очистка файлов перед обработкой
+    open(os.path.join(output_dir, 'all_reviews.jsonl'), 'w').close()
+    open(os.path.join(output_dir, 'gazprom_reviews.jsonl'), 'w').close()
+    open(os.path.join(output_dir, 'duplicates.jsonl'), 'w').close()
+    
     if process_gazprom:
-        process_gazprom_data(gazprom_file, filters, start_date, end_date)
+        u_c, u_s_p, u_s_b, u_s_p_b, d_c, d_s_p, d_s_b, d_s_p_b = process_json_reviews(
+            gazprom_file, filters, start_date, end_date, output_dir, is_gazprom=True)
+        save_stats(u_c, u_s_p, u_s_b, u_s_p_b, os.path.join(output_dir, 'stats_gazprom.json'))
+        save_stats(d_c, d_s_p, d_s_b, d_s_p_b, os.path.join(output_dir, 'stats_gazprom_duplicates.json'))
+    
     if process_all_banks:
-        process_all_banks_data(all_banks_file, subsample_all, filters, start_date, end_date)
+        u_c, u_s_p, u_s_b, u_s_p_b, d_c, d_s_p, d_s_b, d_s_p_b = process_json_reviews(
+            all_banks_file, filters, start_date, end_date, output_dir, 
+            subsample=subsample_all if subsample_all is not None else None)
+        save_stats(u_c, u_s_p, u_s_b, u_s_p_b, os.path.join(output_dir, 'stats_all_banks.json'))
+        save_stats(d_c, d_s_p, d_s_b, d_s_p_b, os.path.join(output_dir, 'stats_all_banks_duplicates.json'))
 
 if __name__ == "__main__":
-    filters = {}  # Пустой, как в оригинале
-    prepare_data()
+    example_filters = {
+        # 'rating': {'disallowed': [0]},  # Пропускать отзывы с рейтингом 0
+        # 'verification_status': {'allowed': ['rateChecking', 'approved']},  # Реальные значения из ratingStatus
+    }
+    prepare_data(process_gazprom=True, process_all_banks=True, filters=example_filters)

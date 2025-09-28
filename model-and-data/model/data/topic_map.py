@@ -1,0 +1,20 @@
+translation_dict = {
+    "savings": "deposits",
+    "debitCards": "cards",
+    "serviceLevel": "individual",
+    "remoteService": "remote",
+    "creditCards": "cards",
+    "credits": "credits",
+    "other": "other",
+    "currencyExchange": "other",
+    "mortgage": "hypothec",
+    "autocredits": "credits",
+    "mobilnoyeprilozheniye": "mobile_app",
+    "usloviya": "other",
+    "creditRefinancing": "restructing",
+    "mortgageRefinancing": "restructing",
+    "businessRko": "",
+    "acquiring": "",
+    "businessCredits": "",
+    "moneyOrder": "transfers"
+}

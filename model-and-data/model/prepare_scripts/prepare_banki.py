@@ -13,7 +13,7 @@ def clean_json(string):
     return string
 
 
-def collect_reviews(directory, output_directory, output_all='all_reviews.jsonl', output_gazprom='gazprom_reviews.jsonl', output_duplicates='duplicates.jsonl'):
+def collect_reviews(directory, output_directory, filters=None, output_all='all_reviews.jsonl', output_gazprom='gazprom_reviews.jsonl', output_duplicates='duplicates.jsonl'):
     os.makedirs(output_directory, exist_ok=True)  # Гарантируем создание папки
     
     output_all = os.path.join(output_directory, output_all)
@@ -48,6 +48,9 @@ def collect_reviews(directory, output_directory, output_all='all_reviews.jsonl',
     dup_long_reviews = 0
     dup_themes = Counter()
     
+    if filters is None:
+        filters = {}
+    
     with open(output_all, 'w', encoding='utf-8') as f_all, \
          open(output_gazprom, 'w', encoding='utf-8') as f_gazprom, \
          open(output_duplicates, 'w', encoding='utf-8') as f_duplicates:
@@ -71,26 +74,59 @@ def collect_reviews(directory, output_directory, output_all='all_reviews.jsonl',
                                     review = data[key]
                                     review['topic'] = topic
                                     
-                                    unique_str = f"{review.get('review_text', '')}|{review.get('review_date', '')}|{review.get('bank_name', '')}|{review.get('rating', '')}"
+                                    # Применение фильтров
+                                    skip = False
+                                    for field, filter_dict in filters.items():
+                                        value = review.get(field, '')
+                                        allowed = filter_dict.get('allowed', [])
+                                        disallowed = filter_dict.get('disallowed', [])
+                                        if allowed and value not in allowed:
+                                            skip = True
+                                            break
+                                        if disallowed and value in disallowed:
+                                            skip = True
+                                            break
+                                    if skip:
+                                        continue  # Пропуск отзыва, не прошедшего общие фильтры
+                                    
+                                    date_str = review.get('review_date', '')
+                                    date_obj = None
+                                    try:
+                                        date_obj = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
+                                    except ValueError:
+                                        date_obj = None
+                                    
+                                    # Фильтр по периоду даты
+                                    if 'review_date' in filters:
+                                        date_filter = filters['review_date']
+                                        start_date_str = date_filter.get('start_date')
+                                        end_date_str = date_filter.get('end_date')
+                                        if date_obj is None:
+                                            skip = True  # Пропуск, если дата invalid
+                                        else:
+                                            if start_date_str:
+                                                start_date = datetime.strptime(start_date_str, "%d.%m.%Y")
+                                                if date_obj < start_date:
+                                                    skip = True
+                                            if end_date_str:
+                                                end_date = datetime.strptime(end_date_str, "%d.%m.%Y")
+                                                if date_obj > end_date:
+                                                    skip = True
+                                        if skip:
+                                            continue  # Пропуск отзыва, не прошедшего фильтр по дате
+                                    
+                                    unique_str = f"{review.get('review_text', '')}|{date_str}|{review.get('bank_name', '')}|{review.get('rating', '')}"
                                     review_hash = hashlib.sha256(unique_str.encode('utf-8')).hexdigest()
                                     
                                     bank = review.get('bank_name', '')
                                     rating_str = review.get('rating', '')
                                     theme = review.get('review_theme', '')
                                     text = review.get('review_text', '')
-                                    date_str = review.get('review_date', '')
                                     
-                                    year = None
-                                    month = None
-                                    try:
-                                        date_obj = datetime.strptime(date_str, "%d.%m.%Y %H:%M")
-                                        year = date_obj.year
-                                        month = date_obj.strftime("%Y-%m")
-                                    except ValueError:
-                                        pass
+                                    year = date_obj.year if date_obj else None
+                                    month = date_obj.strftime("%Y-%m") if date_obj else None
                                     
                                     rating = float(rating_str) if rating_str.isdigit() else 0.0
-
                                     is_long = len(text) > 200
                                     
                                     if review_hash in seen_hashes:
@@ -117,10 +153,6 @@ def collect_reviews(directory, output_directory, output_all='all_reviews.jsonl',
                                         
                                         json.dump(review, f_all, ensure_ascii=False)
                                         f_all.write('\n')
-                                        if rating == 0:
-                                            with open(output_directory + "/what.txt", "a", encoding='utf-8') as f:
-                                                json.dump(review, f, ensure_ascii=False)
-                                                f.write('\n')
                                         
                                         total_unique += 1
                                         unique_product_count[topic] += 1
@@ -199,4 +231,10 @@ def collect_reviews(directory, output_directory, output_all='all_reviews.jsonl',
 
 
 if __name__ == "__main__":
-    collect_reviews("data/bankiru_raw", "data/processed/banki")
+    # Пример фильтров: только проверенные отзывы с оценкой (не "Без оценки")
+    example_filters = {
+        # 'verification_status': {'allowed': ['Оценка:']},
+        # 'rating': {'disallowed': ['Без оценки', '']},
+        # 'review_date': {'start_date': '01.01.2024', 'end_date': '31.12.2025'}
+    }
+    collect_reviews("data\\bankiru_raw", "data/processed/banki", filters=example_filters)
