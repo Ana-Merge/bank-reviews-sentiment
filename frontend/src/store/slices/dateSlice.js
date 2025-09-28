@@ -8,6 +8,7 @@ const dateSlice = createSlice({
         startDate2: "2024-12-01",
         endDate2: "2025-02-28",
         aggregationType: "month",
+        source: null,
         dateErrors: {},
     },
     reducers: {
@@ -26,6 +27,9 @@ const dateSlice = createSlice({
         setAggregationType: (state, action) => {
             state.aggregationType = action.payload;
         },
+        setSource: (state, action) => {
+            state.source = action.payload;
+        },
         setDateErrors: (state, action) => {
             state.dateErrors = action.payload;
         },
@@ -41,6 +45,7 @@ export const {
     setStartDate2,
     setEndDate2,
     setAggregationType,
+    setSource,
     setDateErrors,
     clearDateErrors,
 } = dateSlice.actions;

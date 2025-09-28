@@ -28,10 +28,11 @@ const formatDateForApi = (dateString, type) =>
   type === "month" ? dateString.substring(0, 7) : dateString;
 
 export const apiService = {
-  async getProductStats(startDate, endDate, startDate2, endDate2, productId = null, categoryId = null) {
+  async getProductStats(startDate, endDate, startDate2, endDate2, productId = null, categoryId = null, source = null) {
     let endpoint = `/v1/dashboards/product-stats?start_date=${startDate}&end_date=${endDate}&start_date2=${startDate2}&end_date2=${endDate2}`;
     if (productId) endpoint += `&product_id=${productId}`;
     if (categoryId) endpoint += `&category_id=${categoryId}`;
+    if (source) endpoint += `&source=${encodeURIComponent(source)}`;
     return request(endpoint);
   },
 
@@ -39,20 +40,22 @@ export const apiService = {
     return request("/v1/dashboards/public-product-tree");
   },
 
-  async getBarChartChanges(productId, startDate, endDate, startDate2, endDate2, aggregationType) {
+  async getBarChartChanges(productId, startDate, endDate, startDate2, endDate2, aggregationType, source = null) {
     let endpoint = `/v1/dashboards/bar_chart_changes?product_id=${productId}&start_date=${formatDateForApi(startDate, aggregationType)}&end_date=${formatDateForApi(endDate, aggregationType)}&start_date2=${formatDateForApi(startDate2, aggregationType)}&end_date2=${formatDateForApi(endDate2, aggregationType)}&aggregation_type=${aggregationType}`;
+    if (source) endpoint += `&source=${encodeURIComponent(source)}`;
     const data = await request(endpoint);
     return { ...data, changes: data.changes || [] };
   },
 
   async getChangeChart(productId, startDate, endDate, startDate2, endDate2, source = null) {
     let endpoint = `/v1/dashboards/change-chart?product_id=${productId}&start_date=${startDate}&end_date=${endDate}&start_date2=${startDate2}&end_date2=${endDate2}`;
-    if (source) endpoint += `&source=${source}`;
+    if (source) endpoint += `&source=${encodeURIComponent(source)}`;
     return request(endpoint);
   },
 
-  async getReviewTonality(productId, startDate, endDate, startDate2, endDate2, aggregationType) {
+  async getReviewTonality(productId, startDate, endDate, startDate2, endDate2, aggregationType, source = null) {
     let endpoint = `/v1/dashboards/monthly-review-count?product_id=${productId}&start_date=${formatDateForApi(startDate, aggregationType)}&end_date=${formatDateForApi(endDate, aggregationType)}&start_date2=${formatDateForApi(startDate2, aggregationType)}&end_date2=${formatDateForApi(endDate2, aggregationType)}&aggregation_type=${aggregationType}`;
+    if (source) endpoint += `&source=${encodeURIComponent(source)}`;
     return request(endpoint);
   },
 };

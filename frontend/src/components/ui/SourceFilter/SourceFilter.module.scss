@@ -1,0 +1,106 @@
+@use "../../../styles/variables" as vars;
+
+.filterContainer {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+}
+
+.filterLabel {
+    display: block;
+    font-size: vars.$font-size-sm;
+    color: vars.$color-text;
+    font-weight: vars.$font-weight-medium;
+    margin-bottom: 6px;
+}
+
+.filterButton {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: vars.$color-white;
+    font-size: vars.$font-size-md;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color 0.2s ease;
+
+    &:hover {
+        border-color: #aaa;
+    }
+
+    &.open {
+        border-color: vars.$color-primary;
+        box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+    }
+}
+
+.filterText {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.iconWrapper {
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+}
+
+.arrowIcon {
+    font-size: 12px;
+    color: #666;
+    transition: transform 0.2s ease;
+}
+
+.open .arrowIcon {
+    transform: rotate(180deg);
+}
+
+.dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: vars.$color-white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.itemsList {
+    display: flex;
+    flex-direction: column;
+}
+
+.itemButton {
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: vars.$font-size-md;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: vars.$color-background;
+    }
+
+    &.selected {
+        background-color: rgba(vars.$color-primary, 0.1);
+        color: vars.$color-primary;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.itemName {
+    display: block;
+}

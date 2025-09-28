@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { ProductAnalyticsTable, ProductFilter, DateFilter, BarChartReviews, AggregationFilter, LineChartReviews, LoadingSpinner, ChangeChart, TonalityChart } from "../../components";
+import { ProductAnalyticsTable, ProductFilter, DateFilter, SourceFilter, BarChartReviews, AggregationFilter, LineChartReviews, LoadingSpinner, ChangeChart, TonalityChart } from "../../components";
 import styles from "./ProductPage.module.scss";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux";
 import { fetchProductTree, setSelectedProduct, setCategoryId } from "../../store/slices/productSlice";
-import { setStartDate, setEndDate, setStartDate2, setEndDate2, setAggregationType, setDateErrors } from "../../store/slices/dateSlice";
+import { setStartDate, setEndDate, setStartDate2, setEndDate2, setAggregationType, setSource, setDateErrors } from "../../store/slices/dateSlice";
 import { fetchProductStats, fetchBarChartData, fetchChangeChartData, fetchTonalityChartData, clearChartData } from "../../store/slices/chartSlice";
 import { useCategoryFromPath } from "../../hooks/useCategoryFromPath";
 
@@ -25,6 +25,7 @@ const ProductPage = () => {
         startDate2,
         endDate2,
         aggregationType,
+        source,
         dateErrors
     } = useAppSelector(state => state.date);
 
@@ -68,11 +69,11 @@ const ProductPage = () => {
 
         const productId = selectedProduct.id;
 
-        dispatch(fetchChangeChartData({ productId, startDate, endDate, startDate2, endDate2 }));
-        dispatch(fetchProductStats({ startDate, endDate, startDate2, endDate2, selectedProduct, categoryId }));
-        dispatch(fetchBarChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType }));
-        dispatch(fetchTonalityChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType }));
-    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, dateErrors, dispatch, categoryId]);
+        dispatch(fetchChangeChartData({ productId, startDate, endDate, startDate2, endDate2, source }));
+        dispatch(fetchProductStats({ startDate, endDate, startDate2, endDate2, selectedProduct, categoryId, source }));
+        dispatch(fetchBarChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }));
+        dispatch(fetchTonalityChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }));
+    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, source, dateErrors, dispatch, categoryId]);
 
     const handleProductSelect = (product) => {
         dispatch(setSelectedProduct(product));
@@ -125,6 +126,12 @@ const ProductPage = () => {
                             <AggregationFilter
                                 aggregationType={aggregationType}
                                 onAggregationChange={(type) => dispatch(setAggregationType(type))}
+                            />
+                        </div>
+                        <div className={styles.filterGroup}>
+                            <SourceFilter
+                                source={source}
+                                onSourceChange={(source) => dispatch(setSource(source))}
                             />
                         </div>
                     </div>

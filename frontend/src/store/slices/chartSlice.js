@@ -3,12 +3,12 @@ import { apiService } from '../../services/api';
 
 export const fetchProductStats = createAsyncThunk(
     'chart/fetchProductStats',
-    async ({ startDate, endDate, startDate2, endDate2, selectedProduct, categoryId }) => {
+    async ({ startDate, endDate, startDate2, endDate2, selectedProduct, categoryId, source }) => {
         let statsData = [];
         if (selectedProduct?.children?.length > 0) {
             const productIds = selectedProduct.children.map(child => child.id);
             const allStatsPromises = productIds.map(id =>
-                apiService.getProductStats(startDate, endDate, startDate2, endDate2, id, selectedProduct.id)
+                apiService.getProductStats(startDate, endDate, startDate2, endDate2, id, selectedProduct.id, source)
             );
             const allStatsResults = await Promise.all(allStatsPromises);
             statsData = allStatsResults.flat();
@@ -20,7 +20,8 @@ export const fetchProductStats = createAsyncThunk(
                 startDate2,
                 endDate2,
                 productId,
-                categoryId
+                categoryId,
+                source
             );
         }
         return statsData;
@@ -29,14 +30,15 @@ export const fetchProductStats = createAsyncThunk(
 
 export const fetchBarChartData = createAsyncThunk(
     'chart/fetchBarChartData',
-    async ({ productId, startDate, endDate, startDate2, endDate2, aggregationType }) => {
+    async ({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }) => {
         const chartData = await apiService.getBarChartChanges(
             productId,
             startDate,
             endDate,
             startDate2,
             endDate2,
-            aggregationType
+            aggregationType,
+            source
         );
         return { ...chartData, changes: chartData.changes || [] };
     }
@@ -44,13 +46,14 @@ export const fetchBarChartData = createAsyncThunk(
 
 export const fetchChangeChartData = createAsyncThunk(
     'chart/fetchChangeChartData',
-    async ({ productId, startDate, endDate, startDate2, endDate2 }) => {
+    async ({ productId, startDate, endDate, startDate2, endDate2, source }) => {
         const chartData = await apiService.getChangeChart(
             productId,
             startDate,
             endDate,
             startDate2,
-            endDate2
+            endDate2,
+            source
         );
         return chartData;
     }
@@ -58,14 +61,15 @@ export const fetchChangeChartData = createAsyncThunk(
 
 export const fetchTonalityChartData = createAsyncThunk(
     'chart/fetchTonalityChartData',
-    async ({ productId, startDate, endDate, startDate2, endDate2, aggregationType }) => {
+    async ({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }) => {
         const chartData = await apiService.getReviewTonality(
             productId,
             startDate,
             endDate,
             startDate2,
             endDate2,
-            aggregationType
+            aggregationType,
+            source
         );
         return chartData;
     }
