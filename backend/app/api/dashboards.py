@@ -506,6 +506,57 @@ async def run_bank_parser(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
     
+
+@dashboards_router.post(
+    "/run-sravni-parser",
+    response_model=Dict[str, Any],
+    summary="Run sravni.ru parser for banks",
+    description="Run the parser to collect reviews for banks from sravni.ru",
+    response_description="Parser execution results"
+)
+async def run_sravni_parser(
+    db: DbSession,
+    bank_slugs: List[str] = Query(..., description="List of bank slugs to parse"),
+    start_date: Optional[str] = Query(None, description="Start date for filtering (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date for filtering (YYYY-MM-DD)"),
+    max_pages: int = Query(100, description="Maximum number of pages to parse per bank"),
+    delay: float = Query(1.0, description="Delay between requests in seconds"),
+    parser_service: ParserService = Depends(lambda: ParserService(ReviewsForModelRepository()))
+):
+    """
+    Запуск парсера sravni.ru для сбора отзывов по банкам.
+
+    **Что передавать**:
+    - **Параметры запроса**:
+      - `bank_slugs`: Список slug банков (обязательно, например: ["gazprombank", "sberbank"])
+      - `start_date`: Начальная дата фильтрации (опционально, формат: YYYY-MM-DD)
+      - `end_date`: Конечная дата фильтрации (опционально, формат: YYYY-MM-DD)
+      - `max_pages`: Максимальное количество страниц (по умолчанию 100)
+      - `delay`: Задержка между запросами в секундах (по умолчанию 1.0)
+
+    **Что получите в ответе**:
+    - **Код 200 OK**: Результаты работы парсера.
+      - **Формат JSON**:
+        ```json
+        {
+          "status": "success",
+          "bank_slugs": ["gazprombank", "sberbank"],
+          "total_reviews_parsed": 1500,
+          "total_saved": 1500,
+          "start_date": "2025-01-01",
+          "end_date": "2025-09-17",
+          "message": "Successfully parsed and saved 1500 reviews from sravni.ru"
+        }
+        ```
+    """
+    try:
+        result = await parser_service.run_sravni_parser(
+            db, bank_slugs, start_date, end_date, max_pages, delay
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sravni parser error: {str(e)}")
+    
 @dashboards_router.post(
     "/reviews",
     response_model=Dict[str, Any],

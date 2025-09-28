@@ -228,17 +228,18 @@ class ReviewsForModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     bank_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)  # gazprombank, sberbank и т.д.
-    product_name: Mapped[str] = mapped_column(String(100), nullable=False)  # debitcards, deposits и т.д.
+    bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)
+    product_name: Mapped[str] = mapped_column(String(100), nullable=False)
     review_theme: Mapped[str] = mapped_column(String(200), nullable=True)
     rating: Mapped[str] = mapped_column(String(20), nullable=True)
     verification_status: Mapped[str] = mapped_column(String(100), nullable=True)
     review_text: Mapped[str] = mapped_column(Text, nullable=False)
-    review_date: Mapped[str] = mapped_column(String(50), nullable=True)  # "17.09.2025 08:45"
-    review_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # Для фильтрации по дате
+    review_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    review_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     source_url: Mapped[str] = mapped_column(String(500), nullable=True)
     parsed_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
     processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    additional_data: Mapped[Optional[dict]] = mapped_column(JSON)  # Для дополнительных данных
 
     __table_args__ = (
         Index("idx_reviews_for_model_parsed_at", "parsed_at"),

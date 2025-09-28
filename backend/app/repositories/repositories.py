@@ -630,6 +630,34 @@ class ReviewsForModelRepository:
             return True
         return False
     
+    async def save_sravni_reviews(self, session: AsyncSession, reviews: List[Dict], bank_slug: str) -> int:
+        """Сохранить данные из парсера sravni.ru в базу"""
+        reviews_to_save = []
+        
+        for review_data in reviews:
+            review = ReviewsForModel(
+                bank_name=review_data.get('bank_name', ''),
+                bank_slug=bank_slug,
+                product_name=review_data.get('product_name', 'general'),
+                review_theme=review_data.get('review_theme', ''),
+                rating=review_data.get('rating', ''),
+                verification_status=review_data.get('verification_status', ''),
+                review_text=review_data.get('review_text', ''),
+                review_date=review_data.get('review_date', ''),
+                review_timestamp=review_data.get('review_timestamp'),
+                source_url=review_data.get('source_url', ''),
+                parsed_at=datetime.utcnow(),
+                processed=False,
+                additional_data=review_data.get('additional_data', {})
+            )
+            reviews_to_save.append(review)
+        
+        if reviews_to_save:
+            await self.bulk_create(session, reviews_to_save)
+            await session.commit()
+        
+        return len(reviews_to_save)
+
 class AuditLogRepository:
     async def save(self, session: AsyncSession, user_id: Optional[int], action: str) -> AuditLog:
         log = AuditLog(user_id=user_id, action=action)
