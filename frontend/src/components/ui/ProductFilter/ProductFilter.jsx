@@ -3,7 +3,7 @@ import { useCategoryFromPath } from "../../../hooks/useCategoryFromPath";
 import styles from "./ProductFilter.module.scss";
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
 
-const ProductFilter = ({ onProductSelect, selectedProduct, productTree }) => {
+const ProductFilter = ({ onProductSelect, selectedProduct, productTree, allowBackFromRoot = false }) => {
   const [filteredTree, setFilteredTree] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [currentLevel, setCurrentLevel] = useState(0);
@@ -111,6 +111,10 @@ const ProductFilter = ({ onProductSelect, selectedProduct, productTree }) => {
       if (newSelectedItems.length > 0) {
         onProductSelect(newSelectedItems[newSelectedItems.length - 1]);
       }
+    } else if (currentLevel === 1 && allowBackFromRoot) {
+      setCurrentLevel(0);
+      setSelectedItems([]);
+      onProductSelect(null);
     }
   };
 
@@ -131,7 +135,7 @@ const ProductFilter = ({ onProductSelect, selectedProduct, productTree }) => {
 
   const getDisplayText = () => {
     if (!selectedProduct) {
-      return autoCategory || "Все продукты";
+      return autoCategory || "Выберите продукт";
     }
     return selectedProduct.name;
   };
@@ -139,6 +143,16 @@ const ProductFilter = ({ onProductSelect, selectedProduct, productTree }) => {
   const isRootCategorySelected = () => {
     if (!selectedProduct || filteredTree.length === 0) return false;
     return selectedProduct.id === filteredTree[0]?.id;
+  };
+
+  const canShowBackButton = () => {
+    if (currentLevel > 1) {
+      return true;
+    }
+    if (currentLevel === 1 && allowBackFromRoot) {
+      return true;
+    }
+    return false;
   };
 
   if (!productTree) {
@@ -178,7 +192,7 @@ const ProductFilter = ({ onProductSelect, selectedProduct, productTree }) => {
 
       {isOpen && (
         <div className={styles.dropdown}>
-          {currentLevel > 1 && (
+          {canShowBackButton() && (
             <div className={styles.breadcrumbs}>
               <button
                 className={styles.backButton}

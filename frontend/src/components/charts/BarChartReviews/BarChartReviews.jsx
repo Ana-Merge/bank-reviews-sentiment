@@ -1,3 +1,12 @@
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+} from "recharts";
 import styles from "./BarChartReviews.module.scss";
 
 const BarChartReviews = ({ chartData, aggregationType, productName }) => {
@@ -14,6 +23,12 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
         ...period1.map(item => item.count),
         ...period2.map(item => item.count)
     );
+
+    // Данные для линейного графика (процентные изменения)
+    const lineChartData = chartData.changes ? chartData.changes.map((item) => ({
+        name: item.aggregation,
+        "Процентное изменение": item.change_percent,
+    })) : [];
 
     const formatDate = (dateString) => {
         if (aggregationType === 'month') {
@@ -70,6 +85,63 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
                 {productName && <span className={styles.productName}>{productName}</span>}
             </div>
 
+            {/* Линейный график процентных изменений - ПЕРВЫЙ */}
+            {lineChartData.length > 0 && (
+                <div className={styles.lineChartSection}>
+                    <h4>Процентное изменение отзывов</h4>
+                    <div className={styles.lineChartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <LineChart
+                                data={lineChartData}
+                                margin={{
+                                    top: 5,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 40,
+                                }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorPercentageChange" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0.8} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    tickFormatter={(tick) => {
+                                        if (aggregationType === "month") {
+                                            return tick.substring(0, 7);
+                                        }
+                                        return tick;
+                                    }}
+                                    tick={{ fontSize: 12, dy: 10 }}
+                                />
+                                <YAxis />
+                                <Tooltip
+                                    formatter={(value) => [`${value}%`, 'Процентное изменение']}
+                                    labelFormatter={(label) => {
+                                        if (aggregationType === "month") {
+                                            return `Период: ${label.substring(0, 7)}`;
+                                        }
+                                        return `Период: ${label}`;
+                                    }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="Процентное изменение"
+                                    stroke="url(#colorPercentageChange)"
+                                    strokeWidth={2}
+                                    dot={{ r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
+            {/* Столбчатый график */}
             <div className={styles.chartContent}>
                 <div className={styles.chartRow}>
                     {Array.from({ length: totalPairs }).map((_, index) => {
@@ -154,11 +226,11 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
             <div className={styles.legend}>
                 <div className={styles.legendItem}>
                     <div className={styles.legendColorPeriod1}></div>
-                    <span>Период 1</span>
+                    <span>Период для сравнения</span>
                 </div>
                 <div className={styles.legendItem}>
                     <div className={styles.legendColorPeriod2}></div>
-                    <span>Период 2</span>
+                    <span>Выбранный период</span>
                 </div>
                 {totalPairs > 0 && (
                     <div className={styles.periodsInfo}>

@@ -217,7 +217,7 @@ const DateFilter = ({
         <div className={styles.dateFilter}>
             <div className={styles.filterControls}>
                 <div className={styles.periodSection}>
-                    <h4 className={styles.periodTitle}>Период 1</h4>
+                    <h4 className={styles.periodTitle}>Период</h4>
                     <div className={styles.periodControls}>
                         <div className={styles.filterGroup}>
                             <label htmlFor="start-date">Начальная дата:</label>
@@ -250,7 +250,7 @@ const DateFilter = ({
                 </div>
 
                 <div className={styles.periodSection}>
-                    <h4 className={styles.periodTitle}>Период 2</h4>
+                    <h4 className={styles.periodTitle}>Период для сравнения</h4>
                     <div className={styles.periodControls}>
                         <div className={styles.filterGroup}>
                             <label htmlFor="start-date2">Начальная дата:</label>

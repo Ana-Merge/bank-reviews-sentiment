@@ -40,7 +40,6 @@ const SourceFilter = ({ source, onSourceChange }) => {
 
     return (
         <div className={styles.filterContainer} ref={dropdownRef}>
-            <label htmlFor="source-select" className={styles.filterLabel}>Источник отзывов</label>
             <button
                 id="source-select"
                 className={`${styles.filterButton} ${isOpen ? styles.open : ""}`}

@@ -5,7 +5,7 @@ import { logout, setSessionExpired, clearSessionExpired } from "../../../store/s
 import { navItems } from "../../../constants/navigation";
 import { AuthModal } from "../../../components";
 import styles from "./Header.module.scss";
-import gazpromLogo from "../../../assets/icons/gazprom-logo.svg";
+import gazpromLogo from "/gazprom-logo.png";
 import uploadIcon from "../../../assets/icons/upload.svg";
 import searchIcon from "../../../assets/icons/icon-search.svg";
 import accountIcon from "../../../assets/icons/icon-account.svg";

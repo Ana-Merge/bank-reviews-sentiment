@@ -48,16 +48,14 @@ const MyDashboardsPage = () => {
       const newPage = {
         id: Date.now().toString(),
         name: newPageName.trim(),
-        charts: [] // Пока без графиков
+        charts: []
       };
 
-      const response = await authService.createDashboardPage(token, newPage);
-
+      await authService.createDashboardPage(token, newPage);
       await loadPages();
 
       setNewPageName("");
       setSuccessMessage(`Страница "${newPage.name}" создана успешно!`);
-
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(`Ошибка создания страницы: ${err.message}`);
@@ -74,10 +72,8 @@ const MyDashboardsPage = () => {
 
     try {
       await authService.deleteDashboardPage(token, pageId);
-
       setPages(prev => prev.filter(page => page.id !== pageId));
       setSuccessMessage(`Страница "${pageName}" удалена успешно!`);
-
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(`Ошибка удаления страницы: ${err.message}`);
@@ -164,7 +160,7 @@ const MyDashboardsPage = () => {
         </div>
       )}
 
-      <div className={styles.pagesSection}>
+      <div className={styles.pagesContainer}>
         <div className={styles.sectionHeader}>
           <h3>Мои страницы дашбордов</h3>
           <span className={styles.pagesCount}>Всего: {pages.length}</span>
@@ -195,30 +191,20 @@ const MyDashboardsPage = () => {
                     className={styles.openButton}
                     title="Открыть в новой вкладке"
                   >
-                    📊 Открыть
+                    Открыть
                   </button>
                   <button
                     onClick={() => handleDeletePage(page.id, page.name)}
                     className={styles.deleteButton}
                     title="Удалить страницу"
                   >
-                    🗑️ Удалить
+                    Удалить
                   </button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      <div className={styles.userInfoSection}>
-        <div className={styles.userInfo}>
-          <strong>Пользователь:</strong> {user?.username}
-          <span className={styles.separator}>|</span>
-          <strong>Статус:</strong> Авторизован
-          <span className={styles.separator}>|</span>
-          <strong>Страниц:</strong> {pages.length}
-        </div>
       </div>
     </div>
   );

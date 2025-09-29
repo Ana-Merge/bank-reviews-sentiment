@@ -50,10 +50,6 @@
   @media (max-width: 1200px) {
     padding: 0 40px;
   }
-
-  @media (max-width: px) {
-    padding: 0 30px;
-  }
 }
 
 .logoContainer {
@@ -64,7 +60,7 @@
   font-family: vars.$font-family-accent;
   font-weight: vars.$font-weight-bold;
   font-size: vars.$font-size-4xl;
-  z-index: 1011;
+  z-index: 999;
 
   @media (max-width: 1440px) {
     font-size: vars.$font-size-4xl;

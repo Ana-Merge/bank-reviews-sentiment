@@ -61,16 +61,6 @@ export const authService = {
         });
     },
 
-    async saveUserDashboardsConfig(token, config) {
-        return request("/v1/user_dashboards/config", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${token}`,
-            },
-            body: JSON.stringify(config),
-        });
-    },
-
     async createDashboardPage(token, pageData) {
         return request("/v1/user_dashboards/pages", {
             method: "POST",
@@ -87,6 +77,26 @@ export const authService = {
             headers: {
                 "Authorization": `Bearer ${token}`,
             },
+        });
+    },
+
+    async saveUserDashboardsConfig(token, configData) {
+        return request("/v1/user_dashboards/config", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify(configData),
+        });
+    },
+
+    async updateDashboardPage(token, pageId, pageData) {
+        return request(`/v1/user_dashboards/pages/${pageId}`, {
+            method: "PUT",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify(pageData),
         });
     },
 };

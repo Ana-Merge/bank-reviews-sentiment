@@ -16,159 +16,261 @@
     padding: 20px 0;
 }
 
-.loading {
+.loading,
+.noData {
     text-align: center;
-    padding: 60px 20px;
+    padding: 40px;
     color: vars.$color-text;
     font-size: vars.$font-size-md;
 }
 
 .error {
-    @include card;
     color: #dc3545;
+    padding: 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 16px 0;
     text-align: center;
-
-    h2 {
-        margin: 0 0 15px 0;
-        color: #dc3545;
-    }
-
-    p {
-        margin: 0 0 20px 0;
-    }
 }
 
 .pageHeader {
     @include card;
-    background: vars.$color-primary;
-    color: white;
-}
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0;
 
-.headerContent {
-    h1 {
-        margin: 0 0 15px 0;
+    .headerContent {
+        flex: 1;
+    }
+
+    .pageTitle {
+        margin: 0 0 10px 0;
+        color: vars.$color-text-dark;
         font-size: vars.$font-size-xl;
         font-weight: vars.$font-weight-medium;
     }
-}
 
-.pageMeta {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
+    .pageMeta {
+        display: flex;
+        gap: 20px;
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
 
-.chartsCount,
-.pageStatus {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: vars.$font-size-sm;
-    font-weight: vars.$font-weight-medium;
+        .chartsCount,
+        .pageStatus {
+            background: vars.$color-background;
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+    }
+
+    .addChartButton {
+        background: vars.$color-primary;
+        color: vars.$color-white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: vars.$font-size-sm;
+        font-weight: vars.$font-weight-medium;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
 }
 
 .pageContent {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    min-height: 400px;
 }
 
 .chartsSection {
-    @include card;
-}
-
-.sectionHeader {
-    margin-bottom: 20px;
-
-    h3 {
-        margin: 0;
-        color: vars.$color-text-dark;
-        font-size: vars.$font-size-lg;
-        font-weight: vars.$font-weight-medium;
-    }
-}
-
-.chartsList {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-}
-
-.chartCard {
-    background: vars.$color-background;
-    padding: 16px;
-    border-radius: 8px;
-    border-left: 4px solid vars.$color-primary;
-    transition: transform 0.2s;
-
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-}
-
-.chartName {
-    margin: 0 0 10px 0;
-    color: vars.$color-text-dark;
-    font-size: vars.$font-size-md;
-    font-weight: vars.$font-weight-medium;
-}
-
-.chartInfo {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 30px;
 }
 
-.chartType,
-.chartProduct {
-    font-size: vars.$font-size-sm;
-    color: vars.$color-text;
+.chartSection {
+    @include card;
+    position: relative;
 
-    &:before {
-        content: "• ";
-        color: vars.$color-primary;
-        font-weight: bold;
+    .chartHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #f0f0f0;
+
+        .chartTitleSection {
+            flex: 1;
+
+            .chartFiltersInfo {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                align-items: center;
+
+                .filterItem {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: vars.$font-size-sm;
+
+                    .filterLabel {
+                        color: vars.$color-text-dark;
+                        font-weight: vars.$font-weight-medium;
+                        white-space: nowrap;
+                    }
+
+                    .filterValue {
+                        color: vars.$color-text;
+                        background: vars.$color-background;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        white-space: nowrap;
+                    }
+                }
+            }
+        }
+
+        .chartActions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: 10px;
+
+            .editChartButton,
+            .deleteChartButton {
+                background: none;
+                border: none;
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 0;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                border-radius: 4px;
+            }
+
+            .editChartButton {
+                color: #6c757d;
+
+                &:hover {
+                    color: vars.$color-primary;
+                    background: rgba(vars.$color-primary, 0.1);
+                }
+            }
+
+            .deleteChartButton {
+                color: #999;
+
+                &:hover {
+                    color: #ff4444;
+                    background: #ffeaea;
+                }
+            }
+        }
     }
+
+    .chartContent {
+        margin-bottom: 15px;
+    }
+}
+
+.chartLoading,
+.chartError {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.chartError {
+    color: #dc3545;
 }
 
 .emptyState {
     @include card;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
     text-align: center;
+
+    .emptyContent {
+        max-width: 400px;
+
+        h3 {
+            margin-bottom: 10px;
+            color: vars.$color-text-dark;
+            font-size: vars.$font-size-lg;
+            font-weight: vars.$font-weight-medium;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: vars.$color-text;
+            line-height: 1.5;
+        }
+    }
 }
 
-.emptyContent {
-    padding: 40px 20px;
-
-    h3 {
-        margin: 0 0 15px 0;
-        color: vars.$color-text-dark;
-        font-size: vars.$font-size-lg;
-    }
-
-    p {
-        margin: 8px 0;
-        color: vars.$color-text;
-        line-height: 1.5;
-    }
+.addFirstChartButton {
+    background: vars.$color-primary;
+    color: vars.$color-white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    transition: background 0.2s;
 }
 
 .actionsSection {
-    @include card;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
     text-align: center;
 }
 
 .backButton {
-    padding: 12px 24px;
-    background-color: vars.$color-primary;
-    color: white;
+    background: #6c757d;
+    color: vars.$color-white;
     border: none;
+    padding: 10px 20px;
     border-radius: 6px;
-    font-size: vars.$font-size-md;
     cursor: pointer;
-    transition: background-color 0.3s;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+    transition: background 0.2s;
 
     &:hover {
-        background-color: #0056b3;
+        background: #545b62;
+    }
+}
+
+.chartSection {
+    :global {
+
+        .barChartContainer,
+        .changeChart,
+        .tonalityChartContainer,
+        .tableContainer {
+            width: 100%;
+        }
+
+        .tableContainer {
+            .tableWrapper {
+                overflow-x: auto;
+            }
+
+            table {
+                width: 100%;
+                min-width: 800px;
+            }
+        }
     }
 }

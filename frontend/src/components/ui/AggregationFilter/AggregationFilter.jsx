@@ -39,7 +39,6 @@ const AggregationFilter = ({ aggregationType, onAggregationChange }) => {
 
     return (
         <div className={styles.filterContainer} ref={dropdownRef}>
-            <label htmlFor="aggregation-select" className={styles.filterLabel}>Группировка</label>
             <button
                 id="aggregation-select"
                 className={`${styles.filterButton} ${isOpen ? styles.open : ""}`}

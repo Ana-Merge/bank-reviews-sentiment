@@ -14,12 +14,13 @@
     gap: 30px;
     width: 100%;
     padding: 20px 0;
+    min-height: calc(100vh - 80px);
 }
 
 .loading,
 .noData {
     text-align: center;
-    padding: 40px;
+    padding: 60px 40px;
     color: vars.$color-text;
     font-size: vars.$font-size-md;
 }
@@ -105,14 +106,14 @@
     min-width: 300px;
     padding: 12px 15px;
     border: 1px solid #ddd;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: vars.$font-size-md;
-    transition: border-color 0.3s;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
     &:focus {
         outline: none;
         border-color: vars.$color-primary;
-        box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+        box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.2);
     }
 
     &:disabled {
@@ -126,11 +127,12 @@
     background-color: vars.$color-primary;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: vars.$font-size-md;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s ease;
     white-space: nowrap;
+    font-weight: vars.$font-weight-medium;
 
     &:disabled {
         background-color: #6c757d;
@@ -138,8 +140,9 @@
     }
 }
 
-.pagesSection {
+.pagesContainer {
     @include card;
+    padding-bottom: 42px;
 }
 
 .sectionHeader {
@@ -169,27 +172,34 @@
 
 .pagesGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 24px;
 }
 
 .pageCard {
     background: white;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
 
     &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     }
 }
 
 .pageContent {
-    padding: 20px;
+    padding: 28px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s ease;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 
     &:hover {
         background-color: #f8f9fa;
@@ -197,9 +207,9 @@
 }
 
 .pageName {
-    margin: 0 0 12px 0;
+    margin: 0 0 16px 0;
     color: vars.$color-text-dark;
-    font-size: vars.$font-size-md;
+    font-size: vars.$font-size-lg;
     font-weight: vars.$font-weight-medium;
     line-height: 1.4;
 }
@@ -207,12 +217,13 @@
 .pageInfo {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 
 .chartsCount {
-    font-size: vars.$font-size-sm;
+    font-size: vars.$font-size-md;
     color: vars.$color-text;
+    font-weight: vars.$font-weight-medium;
 
     &:before {
         content: "• ";
@@ -224,17 +235,19 @@
 .pageActions {
     display: flex;
     border-top: 1px solid #f0f0f0;
+    height: 60px;
 }
 
 .openButton,
 .deleteButton {
     flex: 1;
-    padding: 12px;
+    padding: 16px;
     border: none;
     background: none;
     cursor: pointer;
-    transition: background-color 0.3s;
-    font-size: vars.$font-size-sm;
+    transition: background-color 0.2s ease;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
 }
 
 .openButton {
@@ -251,24 +264,5 @@
 
     &:hover {
         background-color: #f8d7da;
-    }
-}
-
-.userInfoSection {
-    @include card;
-    text-align: center;
-}
-
-.userInfo {
-    color: vars.$color-text;
-    font-size: vars.$font-size-sm;
-
-    .separator {
-        margin: 0 10px;
-        color: #ddd;
-    }
-
-    strong {
-        color: vars.$color-text-dark;
     }
 }

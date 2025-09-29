@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ProductAnalyticsTable, ProductFilter, DateFilter, SourceFilter, BarChartReviews, AggregationFilter, LineChartReviews, LoadingSpinner, ChangeChart, TonalityChart } from "../../components";
+import { ProductAnalyticsTable, ProductFilter, DateFilter, SourceFilter, BarChartReviews, AggregationFilter, LoadingSpinner, ChangeChart, TonalityChart } from "../../components";
 import styles from "./ProductPage.module.scss";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux";
 import { fetchProductTree, setSelectedProduct, setCategoryId } from "../../store/slices/productSlice";
@@ -153,13 +153,6 @@ const ProductPage = () => {
                         productName={selectedProduct?.name}
                     />
 
-                    <LineChartSection
-                        isLoading={isLoadingChart}
-                        error={errorChart}
-                        data={barChartData}
-                        aggregationType={aggregationType}
-                    />
-
                     <BarChartSection
                         isLoading={isLoadingChart}
                         error={errorChart}
@@ -193,15 +186,6 @@ const ChangeChartSection = ({ isLoading, error, data, productName }) => (
         {error && <div className={styles.error}>{error}</div>}
         {!isLoading && !error && data && <ChangeChart data={data} productName={productName} />}
         {!isLoading && !error && !data && <div className={styles.noData}>Нет данных для отображения общей статистики</div>}
-    </div>
-);
-
-const LineChartSection = ({ isLoading, error, data, aggregationType }) => (
-    <div className={styles.lineChartSection}>
-        {isLoading && <div className={styles.loading}><LoadingSpinner /></div>}
-        {error && <div className={styles.error}>{error}</div>}
-        {!isLoading && !error && data?.changes && <LineChartReviews chartData={data.changes} aggregationType={aggregationType} />}
-        {!isLoading && !error && (!data || !data.changes?.length) && <div className={styles.noData}>Нет данных для отображения линейного графика</div>}
     </div>
 );
 
