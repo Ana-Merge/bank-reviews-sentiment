@@ -15,36 +15,25 @@ import {
 
 import styles from "./DashboardPage.module.scss";
 
+// Вспомогательная функция для получения дочерних продуктов
 const getAllChildProducts = (productTree, productId) => {
-    const findProductAndChildren = (nodes, targetId) => {
+    const findProductAndDirectChildren = (nodes, targetId) => {
         for (let node of nodes) {
             if (node.id === targetId) {
                 if (node.children && node.children.length > 0) {
-                    return getAllLeafProducts(node.children);
+                    return node.children;
                 }
                 return [node];
             }
             if (node.children) {
-                const found = findProductAndChildren(node.children, targetId);
+                const found = findProductAndDirectChildren(node.children, targetId);
                 if (found.length > 0) return found;
             }
         }
         return [];
     };
 
-    const getAllLeafProducts = (nodes) => {
-        let leaves = [];
-        for (let node of nodes) {
-            if (node.children && node.children.length > 0) {
-                leaves = leaves.concat(getAllLeafProducts(node.children));
-            } else {
-                leaves.push(node);
-            }
-        }
-        return leaves;
-    };
-
-    return findProductAndChildren(productTree, productId);
+    return findProductAndDirectChildren(productTree, productId);
 };
 
 // Компонент для отображения графика по конфигурации
