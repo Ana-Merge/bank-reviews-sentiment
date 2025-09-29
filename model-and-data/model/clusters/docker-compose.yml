@@ -1,13 +1,13 @@
 version: '3.8'
 services:
-  cluster-gpu:
+  tf-idf:
     build:
-      context: .
+      context: ./tf-idf
       dockerfile: Dockerfile
-    image: cluster-gpu
+    image: tf-idf-cluster
     volumes:
-      - ../data/processed/common:/app/data/processed/common
-      - ../data/clusters:/app/data/clusters
+      - ../data/processed/common:/app/tf-idf/data/processed/common
+      - ../data/clusters:/app/tf-idf/data/clusters
     deploy:
       resources:
         reservations:
@@ -17,7 +17,24 @@ services:
               capabilities: [gpu]
     runtime: nvidia
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all  # Явно указываем доступ к GPU
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # Разрешаем вычисления
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     stdin_open: true
     tty: true
+
+  bert:
+      build:
+        context: ./bert
+        dockerfile: Dockerfile
+      volumes:
+      - ../data/processed/common:/app/bert/data/processed/common
+      - ../data/clusters:/app/bert/data/clusters
+      deploy:
+        resources:
+          limits:
+            memory: 16G
+          reservations:
+            memory: 8G
+      runtime: nvidia
+      environment:
+        - NVIDIA_VISIBLE_DEVICES=all

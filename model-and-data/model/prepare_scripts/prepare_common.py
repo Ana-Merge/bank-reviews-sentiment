@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import gc
 import ijson  # Для потокового парсинга
 
-# Словарь для перевода тем из Sravni.ru в темы Banki.ru
 translation_dict = {
     "savings": "deposits",
     "debitcards": "debitcards",
@@ -16,18 +15,18 @@ translation_dict = {
     "creditcards": "creditcards",
     "credits": "credits",
     "other": "other",
-    "currencyexchange": "currencyexchange",
+    "currencyexchange": "other",
     "mortgage": "hypothec",
-    "autocredits": "autocredits",
+    "autocredits": "credits",
     "mobilnoyeprilozheniye": "mobile_app",
-    "usloviya": "usloviya",
-    "creditrefinancing": "creditrefinancing",
-    "mortgagerefinancing": "mortgagerefinancing",
-    "businessrko": "businessrko",
-    "acquiring": "acquiring",
-    "businesscredits": "businesscredits",
-    "moneyorder": "moneyorder",
-    "unknown": "unknown"  # Для случаев, когда reviewTag отсутствует или не распознается
+    "usloviya": "individual",
+    "creditrefinancing": "restructing",
+    "mortgagerefinancing": "restructing",
+    "businessrko": "",
+    "acquiring": "",
+    "businesscredits": "",
+    "moneyorder": "other",
+    "unknown": "other",
 }
 
 # Функция предобработки текста
@@ -58,15 +57,15 @@ def filter_review(review, filters, start_date, end_date):
         disallowed = filter_dict.get('disallowed', [])
         if allowed and str(value) not in [str(x) for x in allowed]:
             # print(f"Отфильтровано по {field} (allowed): {value}")
-            return True  # Skip
+            return True
         if disallowed and str(value) in [str(x) for x in disallowed]:
             # print(f"Отфильтровано по {field} (disallowed): {value}")
-            return True  # Skip
+            return True
     # Фильтр по дате
     date_str = review.get('review_date', '')
     if not date_str:
         # print(f"Отфильтровано по отсутствию даты: {date_str}")
-        return True  # Skip если дата отсутствует
+        return True
     try:
         review_date = datetime.strptime(date_str, '%d.%m.%Y %H:%M')
         if start_date and review_date < start_date.replace(tzinfo=None):  # Сравниваем без часового пояса
@@ -77,14 +76,14 @@ def filter_review(review, filters, start_date, end_date):
             return True
     except ValueError:
         # print(f"Отфильтровано по невалидной дате: {date_str}")
-        return True  # Skip invalid date
-    return False  # Keep
+        return True 
+    return False
 
 # Функция для обновления статистики
 def update_stats(review, counters, sum_rating_product, sum_rating_bank, sum_rating_product_bank):
     topic = review['topic']
     bank = review['bank_name']
-    rating = float(review['rating']) if review['rating'] and str(review['rating']).isdigit() else 0.0
+    rating = float(review['rating']) if review['rating'] else 0.0  # Упрощено, так как rating теперь всегда int
     theme = review.get('review_theme', 'unknown')
     text = review['review_text']
     date_str = review['review_date']
@@ -156,7 +155,7 @@ def normalize_verification_status(status, source, rating):
             return 'rateApproved'
         elif status == 'rateRejected':
             return 'rateRejected'
-        else:  # rateChecking или другие
+        else:
             return status  # Оставляем как есть, или маппим на rateRejected если нужно
     elif source == 'banki':
         if status == 'Оценка:':
@@ -164,8 +163,8 @@ def normalize_verification_status(status, source, rating):
         elif status == 'Без оценки':
             return 'rateRejected'
         else:
-            return 'rateRejected'  # По умолчанию rejected
-    return 'unknown'  # На случай других источников
+            return 'rateRejected'
+    return 'unknown'
 
 # Функция для обработки JSON-файла (Sravni)
 def process_json_reviews(json_file, filters, start_date, end_date, output_dir, source, is_gazprom=False, subsample=None):
@@ -187,6 +186,23 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
     dup_sum_rating_bank = defaultdict(float)
     dup_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
     
+    # Отдельные счётчики для Газпромбанка (уникальные и дубликаты)
+    gazprom_unique_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                               'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                               'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews_count': 0, 
+                               'themes': Counter()}
+    gazprom_unique_sum_rating_product = defaultdict(float)
+    gazprom_unique_sum_rating_bank = defaultdict(float)
+    gazprom_unique_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
+    gazprom_dup_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                            'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                            'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews_count': 0, 
+                            'themes': Counter()}
+    gazprom_dup_sum_rating_product = defaultdict(float)
+    gazprom_dup_sum_rating_bank = defaultdict(float)
+    gazprom_dup_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
     all_reviews_path = os.path.join(output_dir, 'all_reviews.jsonl')
     gazprom_reviews_path = os.path.join(output_dir, 'gazprom_reviews.jsonl')
     duplicates_path = os.path.join(output_dir, 'duplicates.jsonl')
@@ -194,7 +210,9 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
     if not os.path.exists(json_file):
         print(f"Файл {json_file} не существует")
         return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
-                dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+                dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank,
+                gazprom_unique_counters, gazprom_unique_sum_rating_product, gazprom_unique_sum_rating_bank, gazprom_unique_sum_rating_product_bank,
+                gazprom_dup_counters, gazprom_dup_sum_rating_product, gazprom_dup_sum_rating_bank, gazprom_dup_sum_rating_product_bank)
     
     with open(all_reviews_path, 'a', encoding='utf-8') as f_all, \
          open(gazprom_reviews_path, 'a', encoding='utf-8') as f_gazprom, \
@@ -203,13 +221,14 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
         
         items = ijson.items(f, 'items.item')
         processed = 0
+        filtered = 0  # Добавлен счётчик отфильтрованных
         for item in items:
             processed += 1
             if subsample and processed > subsample:
                 break
             
             raw_topic = item.get('reviewTag', 'unknown').lower()
-            topic = translation_dict.get(raw_topic, 'unknown')
+            topic = translation_dict.get(raw_topic, 'other')
             
             date_iso = item.get('date', '1970-01-01T00:00:00Z')
             try:
@@ -219,6 +238,11 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
                 review_date = '01.01.1970 00:00'
             
             rating = item.get('rating', 0)
+            try:
+                rating = int(rating)  # Преобразование в int
+            except ValueError:
+                rating = 0
+            
             status = item.get('ratingStatus', 'unknown')
             normalized_status = normalize_verification_status(status, source, rating)
             if normalized_status == 'rateRejected':
@@ -236,6 +260,7 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
             }
             
             if filter_review(review, filters, start_date, end_date):
+                filtered += 1
                 continue
             
             unique_str = f"{review['review_text']}|{review['review_date']}|{review['bank_name']}|{str(review['rating'])}"
@@ -243,6 +268,8 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
             
             if review_hash in seen_hashes:
                 update_stats(review, dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+                if review['bank_name'] == 'Газпромбанк':
+                    update_stats(review, gazprom_dup_counters, gazprom_dup_sum_rating_product, gazprom_dup_sum_rating_bank, gazprom_dup_sum_rating_product_bank)
                 json.dump(review, f_dup, ensure_ascii=False)
                 f_dup.write('\n')
             else:
@@ -253,11 +280,14 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, s
                 if review['bank_name'] == 'Газпромбанк':
                     json.dump(review, f_gazprom, ensure_ascii=False)
                     f_gazprom.write('\n')
+                    update_stats(review, gazprom_unique_counters, gazprom_unique_sum_rating_product, gazprom_unique_sum_rating_bank, gazprom_unique_sum_rating_product_bank)
     
-    print(f"Файл {json_file}: обработано отзывов: {processed}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}")
+    print(f"Файл {json_file}: обработано отзывов: {processed}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}, отфильтровано: {filtered}")
     gc.collect()
     return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
-            dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+            dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank,
+            gazprom_unique_counters, gazprom_unique_sum_rating_product, gazprom_unique_sum_rating_bank, gazprom_unique_sum_rating_product_bank,
+            gazprom_dup_counters, gazprom_dup_sum_rating_product, gazprom_dup_sum_rating_bank, gazprom_dup_sum_rating_product_bank)
 
 # Функция для обработки JSONL-файлов (Banki)
 def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, source, subsample=None):
@@ -279,6 +309,23 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
     dup_sum_rating_bank = defaultdict(float)
     dup_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
     
+    # Отдельные счётчики для Газпромбанка (уникальные и дубликаты)
+    gazprom_unique_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                               'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                               'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews_count': 0, 
+                               'themes': Counter()}
+    gazprom_unique_sum_rating_product = defaultdict(float)
+    gazprom_unique_sum_rating_bank = defaultdict(float)
+    gazprom_unique_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
+    gazprom_dup_counters = {'total': 0, 'product_count': defaultdict(int), 'bank_count': defaultdict(int), 
+                            'product_per_bank': defaultdict(lambda: defaultdict(int)), 'rating_count': defaultdict(int), 
+                            'date_year_count': defaultdict(int), 'date_month_count': defaultdict(int), 'long_reviews_count': 0, 
+                            'themes': Counter()}
+    gazprom_dup_sum_rating_product = defaultdict(float)
+    gazprom_dup_sum_rating_bank = defaultdict(float)
+    gazprom_dup_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
+    
     all_reviews_path = os.path.join(output_dir, 'all_reviews.jsonl')
     gazprom_reviews_path = os.path.join(output_dir, 'gazprom_reviews.jsonl')
     duplicates_path = os.path.join(output_dir, 'duplicates.jsonl')
@@ -287,13 +334,18 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
          open(gazprom_reviews_path, 'a', encoding='utf-8') as f_gazprom, \
          open(duplicates_path, 'a', encoding='utf-8') as f_dup:
         
+        processed_total = 0
+        filtered_total = 0  # Общий счётчик отфильтрованных для всех файлов
+        
         for filename in os.listdir(directory):
             if filename.endswith('.jsonl'):
                 filepath = os.path.join(directory, filename)
-                topic = os.path.splitext(filename)[0]
+                raw_topic = os.path.splitext(filename)[0].lower()
+                topic = translation_dict.get(raw_topic, 'other')
                 
                 with open(filepath, 'r', encoding='utf-8') as f_in:
                     processed = 0
+                    filtered = 0  # Счётчик отфильтрованных для файла
                     for line_num, line in enumerate(f_in):
                         line = clean_json(line.strip())
                         if not line:
@@ -303,10 +355,10 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
                             data = json.loads(line)
                             for key in data:
                                 if key.isdigit():
-                                    review = data[key]
-                                    review['topic'] = topic
+                                    review_data = data[key]
+                                    review_data['topic'] = topic
                                     
-                                    date_str = review.get('review_date', '')
+                                    date_str = review_data.get('review_date', '')
                                     if not date_str:
                                         review_date = '01.01.1970 00:00'
                                     else:
@@ -316,24 +368,30 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
                                         except ValueError:
                                             review_date = '01.01.1970 00:00'
                                     
-                                    rating = review.get('rating', 0)
-                                    status = review.get('verification_status', 'unknown')
+                                    rating = review_data.get('rating', 0)
+                                    try:
+                                        rating = int(rating)  # Преобразование в int (если строка)
+                                    except ValueError:
+                                        rating = 0
+                                    
+                                    status = review_data.get('verification_status', 'unknown')
                                     normalized_status = normalize_verification_status(status, source, rating)
                                     if normalized_status == 'rateRejected':
                                         rating = 0
                                     
                                     review = {
-                                        'bank_name': review.get('bank_name', 'Другие банки'),
-                                        'review_theme': review.get('review_theme', 'unknown'),
+                                        'bank_name': review_data.get('bank_name', 'Другие банки'),
+                                        'review_theme': review_data.get('review_theme', 'unknown'),
                                         'rating': rating,
                                         'verification_status': normalized_status,
-                                        'review_text': review.get('review_text', 'unknown'),
+                                        'review_text': review_data.get('review_text', 'unknown'),
                                         'review_date': review_date,
                                         'topic': topic,
                                         'source': source
                                     }
                                     
                                     if filter_review(review, filters, start_date, end_date):
+                                        filtered += 1
                                         continue
                                     
                                     unique_str = f"{review['review_text']}|{review['review_date']}|{review['bank_name']}|{str(review['rating'])}"
@@ -341,6 +399,8 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
                                     
                                     if review_hash in seen_hashes:
                                         update_stats(review, dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+                                        if review['bank_name'] == 'Газпромбанк':
+                                            update_stats(review, gazprom_dup_counters, gazprom_dup_sum_rating_product, gazprom_dup_sum_rating_bank, gazprom_dup_sum_rating_product_bank)
                                         json.dump(review, f_dup, ensure_ascii=False)
                                         f_dup.write('\n')
                                     else:
@@ -351,16 +411,23 @@ def process_jsonl_reviews(directory, filters, start_date, end_date, output_dir, 
                                         if review['bank_name'] == 'Газпромбанк':
                                             json.dump(review, f_gazprom, ensure_ascii=False)
                                             f_gazprom.write('\n')
+                                            update_stats(review, gazprom_unique_counters, gazprom_unique_sum_rating_product, gazprom_unique_sum_rating_bank, gazprom_unique_sum_rating_product_bank)
                                     processed += 1
-                                    if subsample and processed > subsample:
+                                    processed_total += 1
+                                    if subsample and processed_total > subsample:
                                         break
                         except json.JSONDecodeError:
                             continue
-                print(f"Файл {filepath}: обработано отзывов: {processed}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}")
+                    filtered_total += filtered
+                    print(f"Файл {filepath}: обработано отзывов: {processed}, отфильтровано: {filtered}")
+        
+        print(f"Директория {directory}: всего обработано отзывов: {processed_total}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}, отфильтровано: {filtered_total}")
     
     gc.collect()
     return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
-            dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
+            dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank,
+            gazprom_unique_counters, gazprom_unique_sum_rating_product, gazprom_unique_sum_rating_bank, gazprom_unique_sum_rating_product_bank,
+            gazprom_dup_counters, gazprom_dup_sum_rating_product, gazprom_dup_sum_rating_bank, gazprom_dup_sum_rating_product_bank)
 
 # Функция для объединения статистики
 def combine_stats(stats_list):
@@ -379,32 +446,32 @@ def combine_stats(stats_list):
     combined_sum_rating_bank = defaultdict(float)
     combined_sum_rating_product_bank = defaultdict(lambda: defaultdict(float))
 
-    for stats in stats_list:
-        combined['total'] += stats['total']
-        for k, v in stats['product_count'].items():
+    for counters, sum_rating_product, sum_rating_bank, sum_rating_product_bank in stats_list:
+        combined['total'] += counters['total']
+        for k, v in counters['product_count'].items():
             combined['product_count'][k] += v
-        for k, v in stats['bank_count'].items():
+        for k, v in counters['bank_count'].items():
             combined['bank_count'][k] += v
-        for bank, topics in stats['product_per_bank'].items():
+        for bank, topics in counters['product_per_bank'].items():
             for topic, v in topics.items():
                 combined['product_per_bank'][bank][topic] += v
-        for k, v in stats['rating_count'].items():
+        for k, v in counters['rating_count'].items():
             combined['rating_count'][k] += v
-        for k, v in stats.get('date_year_count', {}).items():
+        for k, v in counters.get('date_year_count', {}).items():
             combined['date_year_count'][k] += v
-        for k, v in stats.get('date_month_count', {}).items():
+        for k, v in counters.get('date_month_count', {}).items():
             combined['date_month_count'][k] += v
-        combined['long_reviews_count'] += stats.get('long_reviews_count', 0)
-        combined['themes'].update(stats.get('themes', Counter()))
+        combined['long_reviews_count'] += counters.get('long_reviews_count', 0)
+        combined['themes'].update(counters.get('themes', Counter()))
 
-        # Накопление сумм рейтингов
-        for k, v in stats.get('avg_rating_per_product', {}).items():
-            combined_sum_rating_product[k] += v * stats['product_count'].get(k, 0)
-        for k, v in stats.get('avg_rating_per_bank', {}).items():
-            combined_sum_rating_bank[k] += v * stats['bank_count'].get(k, 0)
-        for bank, topics in stats.get('avg_rating_per_product_bank', {}).items():
-            for topic, v in topics.items():
-                combined_sum_rating_product_bank[bank][topic] += v * stats['product_per_bank'].get(bank, {}).get(topic, 0)
+        # Накопление сумм рейтингов (используем count для пересчёта)
+        for k in counters['product_count']:
+            combined_sum_rating_product[k] += sum_rating_product.get(k, 0)
+        for k in counters['bank_count']:
+            combined_sum_rating_bank[k] += sum_rating_bank.get(k, 0)
+        for bank in counters['product_per_bank']:
+            for topic in counters['product_per_bank'][bank]:
+                combined_sum_rating_product_bank[bank][topic] += sum_rating_product_bank[bank].get(topic, 0)
 
     return (combined, combined_sum_rating_product, combined_sum_rating_bank, combined_sum_rating_product_bank)
 
@@ -431,33 +498,55 @@ def prepare_common(process_sravni=True, process_banki=True,
     open(os.path.join(output_dir, 'gazprom_reviews.jsonl'), 'w').close()
     open(os.path.join(output_dir, 'duplicates.jsonl'), 'w').close()
     
-    stats_list = []
+    unique_stats_list = []
+    dup_stats_list = []
+    gazprom_unique_stats_list = []
+    gazprom_dup_stats_list = []
     
     if process_sravni:
         sravni_files = ['gazprom_reviews.json', 'all_reviews.json']
         for sravni_file in sravni_files:
             file_path = os.path.join(sravni_dir, sravni_file)
-            u_c_s, u_s_p_s, u_s_b_s, u_s_p_b_s, d_c_s, d_s_p_s, d_s_b_s, d_s_p_b_s = process_json_reviews(
+            u_c, u_s_p, u_s_b, u_s_p_b, d_c, d_s_p, d_s_b, d_s_p_b, g_u_c, g_u_s_p, g_u_s_b, g_u_s_p_b, g_d_c, g_d_s_p, g_d_s_b, g_d_s_p_b = process_json_reviews(
                 file_path, filters, start_date, end_date, output_dir, source='sravni', is_gazprom=(sravni_file == 'gazprom_reviews.json'), subsample=subsample_sravni)
-            save_stats(u_c_s, u_s_p_s, u_s_b_s, u_s_p_b_s, os.path.join(output_dir, f'stats_sravni_{sravni_file.replace(".json", "")}.json'))
-            save_stats(d_c_s, d_s_p_s, d_s_b_s, d_s_p_b_s, os.path.join(output_dir, f'stats_sravni_{sravni_file.replace(".json", "")}_duplicates.json'))
-            stats_list.append(u_c_s)
+            save_stats(u_c, u_s_p, u_s_b, u_s_p_b, os.path.join(output_dir, f'stats_sravni_{sravni_file.replace(".json", "")}.json'))
+            save_stats(d_c, d_s_p, d_s_b, d_s_p_b, os.path.join(output_dir, f'stats_sravni_{sravni_file.replace(".json", "")}_duplicates.json'))
+            unique_stats_list.append((u_c, u_s_p, u_s_b, u_s_p_b))
+            dup_stats_list.append((d_c, d_s_p, d_s_b, d_s_p_b))
+            gazprom_unique_stats_list.append((g_u_c, g_u_s_p, g_u_s_b, g_u_s_p_b))
+            gazprom_dup_stats_list.append((g_d_c, g_d_s_p, g_d_s_b, g_d_s_p_b))
     
     if process_banki:
-        u_c_b, u_s_p_b, u_s_b_b, u_s_p_b_b, d_c_b, d_s_p_b, d_s_b_b, d_s_p_b_b = process_jsonl_reviews(
+        u_c, u_s_p, u_s_b, u_s_p_b, d_c, d_s_p, d_s_b, d_s_p_b, g_u_c, g_u_s_p, g_u_s_b, g_u_s_p_b, g_d_c, g_d_s_p, g_d_s_b, g_d_s_p_b = process_jsonl_reviews(
             banki_dir, filters, start_date, end_date, output_dir, source='banki', subsample=subsample_banki)
-        save_stats(u_c_b, u_s_p_b, u_s_b_b, u_s_p_b_b, os.path.join(output_dir, 'stats_banki.json'))
-        save_stats(d_c_b, d_s_p_b, d_s_b_b, d_s_p_b_b, os.path.join(output_dir, 'stats_banki_duplicates.json'))
-        stats_list.append(u_c_b)
+        save_stats(u_c, u_s_p, u_s_b, u_s_p_b, os.path.join(output_dir, 'stats_banki.json'))
+        save_stats(d_c, d_s_p, d_s_b, d_s_p_b, os.path.join(output_dir, 'stats_banki_duplicates.json'))
+        unique_stats_list.append((u_c, u_s_p, u_s_b, u_s_p_b))
+        dup_stats_list.append((d_c, d_s_p, d_s_b, d_s_p_b))
+        gazprom_unique_stats_list.append((g_u_c, g_u_s_p, g_u_s_b, g_u_s_p_b))
+        gazprom_dup_stats_list.append((g_d_c, g_d_s_p, g_d_s_b, g_d_s_p_b))
     
     # Сохранение общей статистики
-    if stats_list:
-        combined_stats, combined_sum_rating_product, combined_sum_rating_bank, combined_sum_rating_product_bank = combine_stats(stats_list)
-        save_stats(combined_stats, combined_sum_rating_product, combined_sum_rating_bank, combined_sum_rating_product_bank, os.path.join(output_dir, 'stats_common.json'))
+    if unique_stats_list:
+        combined_unique, c_u_s_p, c_u_s_b, c_u_s_p_b = combine_stats(unique_stats_list)
+        save_stats(combined_unique, c_u_s_p, c_u_s_b, c_u_s_p_b, os.path.join(output_dir, 'stats_common.json'))
+    
+    if dup_stats_list:
+        combined_dup, c_d_s_p, c_d_s_b, c_d_s_p_b = combine_stats(dup_stats_list)
+        save_stats(combined_dup, c_d_s_p, c_d_s_b, c_d_s_p_b, os.path.join(output_dir, 'stats_common_duplicates.json'))
+    
+    # Сохранение статистики по Газпромбанку (из всех источников)
+    if gazprom_unique_stats_list:
+        combined_gazprom_unique, c_g_u_s_p, c_g_u_s_b, c_g_u_s_p_b = combine_stats(gazprom_unique_stats_list)
+        save_stats(combined_gazprom_unique, c_g_u_s_p, c_g_u_s_b, c_g_u_s_p_b, os.path.join(output_dir, 'stats_gazprom.json'))
+    
+    if gazprom_dup_stats_list:
+        combined_gazprom_dup, c_g_d_s_p, c_g_d_s_b, c_g_d_s_p_b = combine_stats(gazprom_dup_stats_list)
+        save_stats(combined_gazprom_dup, c_g_d_s_p, c_g_d_s_b, c_g_d_s_p_b, os.path.join(output_dir, 'stats_gazprom_duplicates.json'))
 
 if __name__ == "__main__":
     example_filters = {
-        'rating': {'disallowed': ['0', '']},
+        # 'rating': {'disallowed': ['0', '', 0]},
         'topic': {'disallowed': [""]}
     }
     prepare_common(process_sravni=True, process_banki=True, filters=example_filters)
