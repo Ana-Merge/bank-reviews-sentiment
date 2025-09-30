@@ -204,14 +204,14 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label className={styles.sectionLabel}>Источник отзывов</label>
+                            <label className={styles.sectionLabel}>Источник:</label>
                             <SourceFilter
                                 source={source}
                                 onSourceChange={setSource}
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label className={styles.sectionLabel}>Группировка данных</label>
+                            <label className={styles.sectionLabel}>Группировка:</label>
                             {supportsAggregation(chartType) ? (
                                 <AggregationFilter
                                     aggregationType={aggregationType}

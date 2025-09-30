@@ -115,7 +115,7 @@ const ProductPage = () => {
                     </div>
                     <div className={styles.productFilterSection}>
                         <div className={styles.filterGroup}>
-                            <label htmlFor="product-filter">Продукт:</label>
+                            <label>Продукт:</label>
                             <ProductFilter
                                 onProductSelect={handleProductSelect}
                                 selectedProduct={selectedProduct}
@@ -123,15 +123,17 @@ const ProductPage = () => {
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <AggregationFilter
-                                aggregationType={aggregationType}
-                                onAggregationChange={(type) => dispatch(setAggregationType(type))}
-                            />
-                        </div>
-                        <div className={styles.filterGroup}>
+                            <label>Источник:</label>
                             <SourceFilter
                                 source={source}
                                 onSourceChange={(source) => dispatch(setSource(source))}
+                            />
+                        </div>
+                        <div className={styles.filterGroup}>
+                            <label>Группировка:</label>
+                            <AggregationFilter
+                                aggregationType={aggregationType}
+                                onAggregationChange={(type) => dispatch(setAggregationType(type))}
                             />
                         </div>
                     </div>

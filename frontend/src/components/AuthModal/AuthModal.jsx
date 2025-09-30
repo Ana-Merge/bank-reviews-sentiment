@@ -3,7 +3,6 @@ import { useAppDispatch, useAppSelector } from "../../hooks/redux";
 import { registerUser, loginUser, clearError, clearSessionExpired } from "../../store/slices/authSlice";
 import styles from "./AuthModal.module.scss";
 
-
 const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
     const dispatch = useAppDispatch();
     const { isLoading, error, isAuthenticated, sessionExpired } = useAppSelector(state => state.auth);
@@ -14,6 +13,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
         password: "",
         confirmPassword: ""
     });
+    const [formErrors, setFormErrors] = useState({});
 
     useEffect(() => {
         if (isAuthenticated && isOpen) {
@@ -30,11 +30,37 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
             password: "",
             confirmPassword: ""
         });
+        setFormErrors({});
     }, [activeTab, dispatch]);
 
     const shouldShowModal = isOpen || sessionExpired;
 
     if (!shouldShowModal) return null;
+
+    const validateForm = () => {
+        const errors = {};
+
+        if (!formData.username.trim()) {
+            errors.username = "Имя пользователя обязательно";
+        }
+
+        if (!formData.password) {
+            errors.password = "Пароль обязателен";
+        } else if (formData.password.length < 6) {
+            errors.password = "Пароль должен содержать не менее 6 символов";
+        }
+
+        if (activeTab === "register") {
+            if (!formData.confirmPassword) {
+                errors.confirmPassword = "Подтверждение пароля обязательно";
+            } else if (formData.password !== formData.confirmPassword) {
+                errors.confirmPassword = "Пароли не совпадают";
+            }
+        }
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -42,35 +68,51 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
             ...prev,
             [name]: value
         }));
+
+        if (formErrors[name]) {
+            setFormErrors(prev => ({
+                ...prev,
+                [name]: ""
+            }));
+        }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
+        if (!validateForm()) {
+            return;
+        }
+
         if (activeTab === "register") {
-            if (formData.password !== formData.confirmPassword) {
-                dispatch(clearError());
-                return;
-            }
             dispatch(registerUser({
                 username: formData.username,
                 password: formData.password,
                 role: "manager"
             })).then((result) => {
                 if (result.meta.requestStatus === 'fulfilled') {
-                    setActiveTab('login');
-                    setFormData({
-                        username: formData.username,
+                    setFormErrors(prev => ({
+                        ...prev,
+                        success: "Регистрация успешна! Теперь вы можете войти."
+                    }));
+
+                    setFormData(prev => ({
+                        ...prev,
                         password: "",
                         confirmPassword: ""
-                    });
+                    }));
+                } else if (result.meta.requestStatus === 'rejected') {
+                    console.error("Registration failed:", result.error);
                 }
             });
         } else {
             dispatch(loginUser({
                 username: formData.username,
                 password: formData.password
-            }));
+            })).then((result) => {
+                if (result.meta.requestStatus === 'fulfilled') {
+                }
+            });
         }
     };
 
@@ -83,6 +125,12 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         dispatch(clearError());
+        setFormErrors({});
+        setFormData({
+            username: "",
+            password: "",
+            confirmPassword: ""
+        });
     };
 
     const handleClose = () => {
@@ -91,6 +139,15 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
         }
         onClose();
         dispatch(clearError());
+        setFormErrors({});
+    };
+
+    const isSubmitDisabled = () => {
+        if (isLoading) return true;
+        if (activeTab === "register") {
+            return !formData.username || !formData.password || !formData.confirmPassword || formData.password.length < 6;
+        }
+        return !formData.username || !formData.password;
     };
 
     return (
@@ -133,7 +190,11 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
                             value={formData.username}
                             onChange={handleInputChange}
                             required
+                            className={formErrors.username ? styles.errorInput : ''}
                         />
+                        {formErrors.username && (
+                            <span className={styles.fieldError}>{formErrors.username}</span>
+                        )}
                     </div>
 
                     <div className={styles.formGroup}>
@@ -145,7 +206,16 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
                             value={formData.password}
                             onChange={handleInputChange}
                             required
+                            className={formErrors.password ? styles.errorInput : ''}
                         />
+                        {formErrors.password && (
+                            <span className={styles.fieldError}>{formErrors.password}</span>
+                        )}
+                        {activeTab === "register" && formData.password && formData.password.length < 6 && (
+                            <span className={styles.passwordHint}>
+                                Пароль должен содержать не менее 6 символов
+                            </span>
+                        )}
                     </div>
 
                     {activeTab === "register" && (
@@ -158,10 +228,17 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
                                 value={formData.confirmPassword}
                                 onChange={handleInputChange}
                                 required
+                                className={formErrors.confirmPassword ? styles.errorInput : ''}
                             />
-                            {formData.password !== formData.confirmPassword && formData.confirmPassword && (
-                                <span className={styles.passwordError}>Пароли не совпадают</span>
+                            {formErrors.confirmPassword && (
+                                <span className={styles.fieldError}>{formErrors.confirmPassword}</span>
                             )}
+                        </div>
+                    )}
+
+                    {formErrors.success && (
+                        <div className={styles.success}>
+                            {formErrors.success}
                         </div>
                     )}
 
@@ -174,7 +251,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
                     <button
                         type="submit"
                         className={styles.submitButton}
-                        disabled={isLoading || (activeTab === "register" && formData.password !== formData.confirmPassword)}
+                        disabled={isSubmitDisabled()}
                     >
                         {isLoading ? "Загрузка..." : (activeTab === "login" ? "Войти" : "Зарегистрироваться")}
                     </button>

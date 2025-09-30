@@ -99,13 +99,25 @@
             border-color: vars.$color-primary;
             box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
         }
+
+        &.errorInput {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
+        }
     }
 }
 
-.passwordError {
+.fieldError {
     color: #dc3545;
     font-size: vars.$font-size-xs;
     margin-top: 4px;
+}
+
+.passwordHint {
+    color: #6c757d;
+    font-size: vars.$font-size-xs;
+    margin-top: 4px;
+    font-style: italic;
 }
 
 .sessionExpired {
@@ -132,6 +144,15 @@
     border-radius: 6px;
     font-size: vars.$font-size-sm;
     border: 1px solid #f5c6cb;
+}
+
+.success {
+    background: #d1edff;
+    color: #0c5460;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: vars.$font-size-sm;
+    border: 1px solid #bee5eb;
 }
 
 .submitButton {

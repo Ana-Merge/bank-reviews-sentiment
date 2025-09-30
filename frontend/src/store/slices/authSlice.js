@@ -12,17 +12,25 @@ const loadUserFromStorage = () => {
 
 export const registerUser = createAsyncThunk(
     'auth/register',
-    async ({ username, password, role }) => {
-        const response = await authService.register(username, password, role);
-        return response;
+    async ({ username, password, role }, { rejectWithValue }) => {
+        try {
+            const response = await authService.register(username, password, role);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error.message || 'Ошибка регистрации');
+        }
     }
 );
 
 export const loginUser = createAsyncThunk(
     'auth/login',
-    async ({ username, password }) => {
-        const response = await authService.login(username, password);
-        return { ...response, username };
+    async ({ username, password }, { rejectWithValue }) => {
+        try {
+            const response = await authService.login(username, password);
+            return { ...response, username };
+        } catch (error) {
+            return rejectWithValue(error.message || 'Ошибка входа');
+        }
     }
 );
 
@@ -68,11 +76,10 @@ const authSlice = createSlice({
             })
             .addCase(registerUser.fulfilled, (state, action) => {
                 state.isLoading = false;
-                localStorage.setItem('username', action.payload.username);
             })
             .addCase(registerUser.rejected, (state, action) => {
                 state.isLoading = false;
-                state.error = action.error.message;
+                state.error = action.payload || action.error.message;
             })
             .addCase(loginUser.pending, (state) => {
                 state.isLoading = true;
@@ -90,7 +97,7 @@ const authSlice = createSlice({
             })
             .addCase(loginUser.rejected, (state, action) => {
                 state.isLoading = false;
-                state.error = action.error.message;
+                state.error = action.payload || action.error.message;
                 state.sessionExpired = false;
             });
     },
