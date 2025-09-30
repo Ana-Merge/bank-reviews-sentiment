@@ -1,3 +1,4 @@
+# dashboards.py
 from typing import Annotated, List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,12 +21,12 @@ dashboards_router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 async def get_product_stats(
     db: DbSession,
     stats_service: StatsServiceDep,
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD format"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD format"),
-    product_id: Optional[int] = Query(None, description="Product ID for filtering"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')")
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD"),
+    product_id: Optional[int] = Query(None, description="ID продукта для фильтрации"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')")
 ):
     """
     Получение статистики по продуктам: количество отзывов, средний рейтинг, распределение по тональности.
@@ -68,7 +69,7 @@ async def get_product_stats(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching product stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении статистики продуктов: {str(e)}")
 
 
 @dashboards_router.get("/monthly-review-count", response_model=Dict[str, List[Dict[str, Any]]])
@@ -76,12 +77,12 @@ async def get_monthly_review_count(
     db: DbSession,
     stats_service: StatsServiceDep,
     product_id: int = Query(...),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    aggregation_type: str = Query(..., description="Aggregation type: 'month', 'week', or 'day'"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')")
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    aggregation_type: str = Query(..., description="Тип агрегации: 'month', 'week', или 'day'"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')")
 ):
     try:
         data = await stats_service.get_monthly_review_count(
@@ -90,7 +91,7 @@ async def get_monthly_review_count(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching monthly review count: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении количества месячных отзывов: {str(e)}")
     
 
 @dashboards_router.get("/bar_chart_changes", response_model=Dict[str, List[Dict[str, Any]]])
@@ -98,12 +99,12 @@ async def get_bar_chart_changes(
     db: DbSession,
     stats_service: StatsServiceDep,
     product_id: int = Query(...),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    aggregation_type: str = Query(..., description="Aggregation type: 'month', 'week', or 'day'"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')"),
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    aggregation_type: str = Query(..., description="Тип агрегации: 'month', 'week', или 'day'"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')"),
 ):
     try:
         data = await stats_service.get_bar_chart_changes(
@@ -113,32 +114,32 @@ async def get_bar_chart_changes(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching monthly review count: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении количества месячных отзывов: {str(e)}")
     
 @dashboards_router.get("/monthly-pie-chart", response_model=MonthlyPieChartResponse)
 async def get_monthly_pie_chart(
     db: DbSession,
     stats_service: StatsServiceDep,
-    product_id: int = Query(..., description="Product ID for filtering"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD or YYYY-MM format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD or YYYY-MM format"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD or YYYY-MM format"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD or YYYY-MM format"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')")
+    product_id: int = Query(..., description="ID продукта для фильтрации"),
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD или YYYY-MM"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD или YYYY-MM"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD или YYYY-MM"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD или YYYY-MM"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')")
 ):
     """
-    Retrieve pie chart data with percentage distribution of reviews by cluster for two periods and percentage point changes.
+    Получение данных для круговой диаграммы с процентным распределением отзывов по кластерам для двух периодов и изменениями в процентных пунктах.
 
-    Parameters:
-    - product_id: ID of the product to filter reviews (required).
-    - start_date: Start date for the first period (required, YYYY-MM-DD or YYYY-MM).
-    - end_date: End date for the first period (required, YYYY-MM-DD or YYYY-MM).
-    - start_date2: Start date for the second period (required, YYYY-MM-DD or YYYY-MM).
-    - end_date2: End date for the second period (required, YYYY-MM-DD or YYYY-MM).
-    - source: Filter reviews by source (optional, e.g., 'Banki.ru', 'App Store', 'Google Play').
+    Параметры:
+    - product_id: ID продукта для фильтрации отзывов (обязательно).
+    - start_date: Начальная дата первого периода (обязательно, YYYY-MM-DD или YYYY-MM).
+    - end_date: Конечная дата первого периода (обязательно, YYYY-MM-DD или YYYY-MM).
+    - start_date2: Начальная дата второго периода (обязательно, YYYY-MM-DD или YYYY-MM).
+    - end_date2: Конечная дата второго периода (обязательно, YYYY-MM-DD или YYYY-MM).
+    - source: Фильтр по источнику отзывов (опционально, например, 'Banki.ru', 'App Store', 'Google Play').
 
-    Returns:
-    - JSON object with 'period1', 'period2', and 'changes' containing labels, percentage data, colors, and total review counts or percentage point changes.
+    Возвращает:
+    - JSON объект с 'period1', 'period2', и 'changes', содержащий метки, процентные данные, цвета и общее количество отзывов или изменения в процентных пунктах.
     """
     try:
         data = await stats_service.get_monthly_pie_chart(
@@ -148,7 +149,7 @@ async def get_monthly_pie_chart(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching monthly pie chart: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных круговой диаграммы: {str(e)}")
 
 @dashboards_router.get("/small-bar-charts", response_model=List[SmallBarChartsResponse])
 async def get_small_bar_charts(
@@ -163,36 +164,36 @@ async def get_small_bar_charts(
         data = await stats_service.get_small_bar_charts(db, product_id, start_date, end_date, None, cluster_id)
         return data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching small bar charts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных малых столбчатых диаграмм: {str(e)}")
 
 @dashboards_router.get("/monthly-stacked-bars", response_model=Dict[str, List[Dict[str, Any]]])
 async def get_monthly_stacked_bars(
     db: DbSession,
     stats_service: StatsServiceDep,
-    product_id: int = Query(..., description="Product ID for filtering"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    aggregation_type: str = Query(..., description="Aggregation type: 'month', 'week', or 'day'"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')"),
-    cluster_id: Optional[int] = Query(None, description="Filter by specific cluster ID (optional)")
+    product_id: int = Query(..., description="ID продукта для фильтрации"),
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    aggregation_type: str = Query(..., description="Тип агрегации: 'month', 'week', или 'day'"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')"),
+    cluster_id: Optional[int] = Query(None, description="Фильтр по конкретному ID кластера (опционально)")
 ):
     """
-    Retrieve stacked bar chart data with review counts per cluster for two periods and percentage changes.
+    Получение данных для stacked bar chart с количеством отзывов по кластерам для двух периодов и процентными изменениями.
 
-    Parameters:
-    - product_id: ID of the product to filter reviews (required).
-    - start_date: Start date for the first period (required, YYYY-MM-DD or YYYY-MM for monthly).
-    - end_date: End date for the first period (required, YYYY-MM-DD or YYYY-MM for monthly).
-    - start_date2: Start date for the second period (required, YYYY-MM-DD or YYYY-MM for monthly).
-    - end_date2: End date for the second period (required, YYYY-MM-DD or YYYY-MM for monthly).
-    - aggregation_type: Type of aggregation ('month', 'week', or 'day').
-    - source: Filter reviews by source (optional, e.g., 'Banki.ru', 'App Store', 'Google Play').
-    - cluster_id: Filter by a specific cluster ID (optional; if not provided, includes all clusters).
+    Параметры:
+    - product_id: ID продукта для фильтрации отзывов (обязательно).
+    - start_date: Начальная дата первого периода (обязательно, YYYY-MM-DD или YYYY-MM для месячной).
+    - end_date: Конечная дата первого периода (обязательно, YYYY-MM-DD или YYYY-MM для месячной).
+    - start_date2: Начальная дата второго периода (обязательно, YYYY-MM-DD или YYYY-MM для месячной).
+    - end_date2: Конечная дата второго периода (обязательно, YYYY-MM-DD или YYYY-MM для месячной).
+    - aggregation_type: Тип агрегации ('month', 'week', или 'day').
+    - source: Фильтр по источнику отзывов (опционально, например, 'Banki.ru', 'App Store', 'Google Play').
+    - cluster_id: Фильтр по конкретному ID кластера (опционально; если не указан, включаются все кластеры).
 
-    Returns:
-    - JSON object with 'period1', 'period2', and 'changes' lists containing aggregation dates, review counts per cluster, and percentage changes.
+    Возвращает:
+    - JSON объект с 'period1', 'period2', и 'changes' списками, содержащими даты агрегации, количество отзывов по кластерам и процентные изменения.
     """
     try:
         data = await stats_service.get_monthly_stacked_bars(
@@ -202,19 +203,19 @@ async def get_monthly_stacked_bars(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching monthly stacked bars: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных stacked bars: {str(e)}")
 
 @dashboards_router.get("/tonality-stacked-bars", response_model=TonalityStackedBarsResponse)
 async def get_tonality_stacked_bars(
     db: DbSession,
     stats_service: StatsServiceDep,
     product_id: int = Query(...),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD or YYYY-MM format for monthly aggregation"),
-    aggregation_type: str = Query(..., description="Aggregation type: 'month', 'week', or 'day'"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')")
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD или YYYY-MM для месячной агрегации"),
+    aggregation_type: str = Query(..., description="Тип агрегации: 'month', 'week', или 'day'"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')")
 ):
     """
     Получение stacked bars по тональности (positive, neutral, negative) с агрегацией по периоду и изменениями со вторым периодом.
@@ -264,18 +265,18 @@ async def get_tonality_stacked_bars(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tonality stacked bars: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении stacked bars по тональности: {str(e)}")
 
 @dashboards_router.get("/line-and-bar-pie-chart", response_model=MonthlyPieChartResponse)
 async def get_line_and_bar_pie_chart(
     db: DbSession,
     stats_service: StatsServiceDep,
-    product_id: int = Query(..., description="Product ID for filtering"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD format"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD format"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')"),
+    product_id: int = Query(..., description="ID продукта для фильтрации"),
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')"),
 ):
     """
     Получение распределения по тональности (pie chart) для двух периодов и изменений.
@@ -320,15 +321,15 @@ async def get_line_and_bar_pie_chart(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tonality pie chart: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении круговой диаграммы тональности: {str(e)}")
 
 
 @dashboards_router.get(
     "/public-product-tree",
     response_model=List[ProductTreeNode],
-    summary="Get product hierarchy tree (public)",
-    description="Retrieve all products in a hierarchical tree structure (categories → subcategories → products) without authentication or parameters.",
-    response_description="List of root nodes representing the product hierarchy."
+    summary="Получить дерево иерархии продуктов (публичное)",
+    description="Получить все продукты в виде иерархической древовидной структуры (категории → подкатегории → продукты) без аутентификации или параметров.",
+    response_description="Список корневых узлов, представляющих иерархию продуктов."
 )
 async def get_public_product_tree(
     db: AsyncSession = Depends(get_db),
@@ -341,18 +342,18 @@ async def get_public_product_tree(
         tree = await product_repo.get_product_tree(db)
         return tree
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve product tree")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Не удалось получить дерево продуктов")
 
 @dashboards_router.get("/change-chart", response_model=ChangeChartResponse)
 async def get_change_chart(
     db: DbSession,
     stats_service: StatsServiceDep,
-    product_id: int = Query(..., description="Product ID for filtering"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    start_date2: str = Query(..., description="Second period start date in YYYY-MM-DD format"),
-    end_date2: str = Query(..., description="Second period end date in YYYY-MM-DD format"),
-    source: Optional[str] = Query(None, description="Filter reviews by source (e.g., 'Banki.ru', 'App Store', 'Google Play')"),
+    product_id: int = Query(..., description="ID продукта для фильтрации"),
+    start_date: str = Query(..., description="Начальная дата в формате YYYY-MM-DD"),
+    end_date: str = Query(..., description="Конечная дата в формате YYYY-MM-DD"),
+    start_date2: str = Query(..., description="Начальная дата второго периода в формате YYYY-MM-DD"),
+    end_date2: str = Query(..., description="Конечная дата второго периода в формате YYYY-MM-DD"),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов (например, 'Banki.ru', 'App Store', 'Google Play')"),
 ):
     """
     Получение общего количества отзывов по продукту за первый период и процент изменения относительно второго периода.
@@ -383,7 +384,7 @@ async def get_change_chart(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching change chart: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении графика изменений: {str(e)}")
     
 @dashboards_router.get("/reviews", response_model=List[ReviewResponse])
 async def get_reviews(
@@ -393,11 +394,13 @@ async def get_reviews(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     cluster_id: Optional[int] = Query(None),
+    source: Optional[str] = Query(None, description="Фильтр по источнику отзывов"),
+    order_by: str = Query("desc", description="Сортировка по дате: 'asc' или 'desc'"),
     page: int = Query(0, ge=0),
     size: int = Query(30, ge=1, le=100),
 ):
     """
-    Получение списка отзывов по продукту с опциональной фильтрацией по кластеру и дате, с пагинацией.
+    Получение списка отзывов по продукту с опциональной фильтрацией по кластеру, дате и источнику, с пагинацией.
 
     **Что передавать**:
     - **Параметры запроса**:
@@ -405,6 +408,8 @@ async def get_reviews(
       - `start_date`: Начальная дата периода (опционально, формат YYYY-MM-DD, например, 2025-01-01).
       - `end_date`: Конечная дата периода (опционально, формат YYYY-MM-DD, например, 2025-06-30).
       - `cluster_id`: ID кластера для фильтрации (опционально, например, 4 для конкретного кластера; если не указан, возвращаются все отзывы).
+      - `source`: Источник отзывов для фильтрации (опционально, например, 'Banki.ru', 'App Store', 'Google Play').
+      - `order_by`: Сортировка по дате (опционально, 'asc' для возрастания или 'desc' для убывания, по умолчанию 'desc').
       - `page`: Номер страницы (опционально, по умолчанию 0).
       - `size`: Количество отзывов на странице (опционально, по умолчанию 30, максимум 100).
     - **Тело запроса**: Не требуется (GET-запрос).
@@ -418,27 +423,36 @@ async def get_reviews(
             "id": 1,
             "text": "Отличный продукт!",
             "date": "2025-01-15",
-            "product_id": 3,
+            "product_ids": [3],
             "rating": 5,
             "sentiment": "positive",
             "sentiment_score": 0.9,
-            "source": "Banki.ru"
+            "source": "Banki.ru",
+            "created_at": "2025-01-15T10:30:00"
           }
         ]
         ```
     """
     try:
-        data = await stats_service.get_reviews(db, product_id, start_date, end_date, cluster_id, page, size)
+        # Валидация параметра order_by
+        if order_by not in ["asc", "desc"]:
+            raise HTTPException(status_code=400, detail="order_by must be 'asc' or 'desc'")
+            
+        data = await stats_service.get_reviews(
+            db, product_id, start_date, end_date, cluster_id, source, order_by, page, size
+        )
         return data
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching reviews: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении отзывов: {str(e)}")
     
 @dashboards_router.get(
     "/clusters",
     response_model=List[ClusterResponse],
-    summary="Get list of clusters (public)",
-    description="Retrieve all clusters without authentication.",
-    response_description="List of clusters with their IDs, names, and descriptions."
+    summary="Получить список кластеров (публичное)",
+    description="Получить все кластеры без аутентификации.",
+    response_description="Список кластеров с их ID, названиями и описаниями."
 )
 async def get_clusters(
     db: AsyncSession = Depends(get_db),
@@ -451,118 +465,14 @@ async def get_clusters(
         clusters = await cluster_repo.get_all(db)
         return [ClusterResponse.from_orm(cluster) for cluster in clusters]
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve clusters")
-    
-@dashboards_router.post(
-    "/run-bank-parser",
-    response_model=Dict[str, Any],
-    summary="Run banki.ru parser for specific bank",
-    description="Run the parser to collect reviews for specific bank and products from banki.ru",
-    response_description="Parser execution results"
-)
-async def run_bank_parser(
-    db: DbSession,
-    bank_slug: str = Query(..., description="Bank slug (e.g., gazprombank, sberbank)"),
-    products: List[str] = Query(..., description="List of products to parse (e.g., debitcards, deposits, credits)"),
-    start_date: Optional[str] = Query(None, description="Start date for filtering (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date for filtering (YYYY-MM-DD)"),
-    max_pages: int = Query(100, description="Maximum number of pages to parse per product"),
-    delay: float = Query(1.0, description="Delay between requests in seconds"),
-    parser_service: ParserService = Depends(lambda: ParserService(ReviewsForModelRepository()))
-):
-    """
-    Запуск парсера banki.ru для сбора отзывов по конкретному банку.
-
-    **Что передавать**:
-    - **Параметры запроса**:
-      - `bank_slug`: Slug банка (обязательно, например: "gazprombank")
-      - `products`: Список продуктов (обязательно, например: ["debitcards", "deposits"])
-      - `start_date`: Начальная дата фильтрации (опционально, формат: YYYY-MM-DD)
-      - `end_date`: Конечная дата фильтрации (опционально, формат: YYYY-MM-DD)
-      - `max_pages`: Максимальное количество страниц (по умолчанию 100)
-      - `delay`: Задержка между запросами в секундах (по умолчанию 1.0)
-
-    **Что получите в ответе**:
-    - **Код 200 OK**: Результаты работы парсера.
-      - **Формат JSON**:
-        ```json
-        {
-          "status": "success",
-          "bank_slug": "gazprombank",
-          "products_processed": ["debitcards", "deposits"],
-          "total_reviews_parsed": 1500,
-          "total_saved": 1500,
-          "start_date": "2025-01-01",
-          "end_date": "2025-09-17",
-          "message": "Successfully parsed and saved 1500 reviews for bank gazprombank"
-        }
-        ```
-    """
-    try:
-        result = await parser_service.run_parser(
-            db, bank_slug, products, start_date, end_date, max_pages, delay
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
-    
-
-@dashboards_router.post(
-    "/run-sravni-parser",
-    response_model=Dict[str, Any],
-    summary="Run sravni.ru parser for banks",
-    description="Run the parser to collect reviews for banks from sravni.ru",
-    response_description="Parser execution results"
-)
-async def run_sravni_parser(
-    db: DbSession,
-    bank_slugs: List[str] = Query(..., description="List of bank slugs to parse"),
-    start_date: Optional[str] = Query(None, description="Start date for filtering (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date for filtering (YYYY-MM-DD)"),
-    max_pages: int = Query(100, description="Maximum number of pages to parse per bank"),
-    delay: float = Query(1.0, description="Delay between requests in seconds"),
-    parser_service: ParserService = Depends(lambda: ParserService(ReviewsForModelRepository()))
-):
-    """
-    Запуск парсера sravni.ru для сбора отзывов по банкам.
-
-    **Что передавать**:
-    - **Параметры запроса**:
-      - `bank_slugs`: Список slug банков (обязательно, например: ["gazprombank", "sberbank"])
-      - `start_date`: Начальная дата фильтрации (опционально, формат: YYYY-MM-DD)
-      - `end_date`: Конечная дата фильтрации (опционально, формат: YYYY-MM-DD)
-      - `max_pages`: Максимальное количество страниц (по умолчанию 100)
-      - `delay`: Задержка между запросами в секундах (по умолчанию 1.0)
-
-    **Что получите в ответе**:
-    - **Код 200 OK**: Результаты работы парсера.
-      - **Формат JSON**:
-        ```json
-        {
-          "status": "success",
-          "bank_slugs": ["gazprombank", "sberbank"],
-          "total_reviews_parsed": 1500,
-          "total_saved": 1500,
-          "start_date": "2025-01-01",
-          "end_date": "2025-09-17",
-          "message": "Successfully parsed and saved 1500 reviews from sravni.ru"
-        }
-        ```
-    """
-    try:
-        result = await parser_service.run_sravni_parser(
-            db, bank_slugs, start_date, end_date, max_pages, delay
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sravni parser error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Не удалось получить кластеры")
     
 @dashboards_router.post(
     "/reviews",
     response_model=Dict[str, Any],
-    summary="Create multiple reviews (public)",
-    description="Create multiple reviews in bulk without authentication. Each review contains a text and is assigned a creation date.",
-    response_description="Status and count of created reviews."
+    summary="Создать несколько отзывов (публичное)",
+    description="Создать несколько отзывов массово без аутентификации. Отзывы сохраняются в таблицу для обработки моделью.",
+    response_description="Статус и количество созданных отзывов."
 )
 async def create_reviews(
     db: DbSession,
@@ -582,7 +492,7 @@ async def create_reviews(
         ]
       }
       ```
-      - `id`: Игнорируется (ID генерируется базой данных).
+      - `id`: Уникальный идентификатор отзыва в рамках этого запроса (обязательно).
       - `text`: Текст отзыва (обязательно, не пустой, максимум 1000 символов).
     - **Ограничения**:
       - Минимум 1 отзыв, максимум 1000 отзывов за раз.
@@ -594,7 +504,8 @@ async def create_reviews(
         ```json
         {
           "status": "success",
-          "created_count": 2
+          "created_count": 2,
+          "message": "Reviews saved for model processing..."
         }
         ```
     - **Код 400 Bad Request**: Если входные данные некорректны.
@@ -604,4 +515,4 @@ async def create_reviews(
         result = await stats_service.create_reviews_bulk(db, reviews_data)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating reviews: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при создании отзывов: {str(e)}")

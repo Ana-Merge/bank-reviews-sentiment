@@ -3,13 +3,12 @@ from typing import Optional, Literal, List
 from enum import StrEnum
 from datetime import date
 
-# Предполагаем, что NonEmptyStr — кастомный тип из utils (str с min_length=1)
 from app.utils.utils import (
     NonEmptyStr,
-)  # Если нет — замени на str и добавь validator
+)
 from app.models.user_models import (
     UserRole,
-)  # Или из schemas/role.py, если отдельно
+)
 
 
 class Role(StrEnum):
@@ -22,15 +21,14 @@ class ChartAttributes(BaseModel):
     date_start_2: Optional[date] = None
     date_end_2: Optional[date] = None
     product_id: str | int
-    source: str  # Новое поле: источник данных для графика
-    aggregation_type: str  # Новое поле: тип агрегации данных
+    source: str
+    aggregation_type: str
 
     @field_validator("product_id")
     def validate_product_id(cls, v):
         if isinstance(v, str) and v != "all":
-            raise ValueError("product_id must be an integer or 'all'")
+            raise ValueError("product_id должен быть int 'all'")
         return v
-
 
 class ChartConfig(BaseModel):
     id: str
@@ -48,7 +46,7 @@ class DashboardConfig(BaseModel):
 
 class Config:
     json_encoders = {
-        date: lambda v: v.isoformat()  # Для безопасности, на случай если даты где-то ещё
+        date: lambda v: v.isoformat()
     }
 
 class LoginCredentials(BaseModel):
@@ -59,36 +57,30 @@ class LoginCredentials(BaseModel):
     @classmethod
     def validate_username(cls, v):
         if len(v) > 50:
-            raise ValueError("Username too long")
+            raise ValueError("Логин слишком большой")
         return v
 
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
         if len(v) < 5:
-            raise ValueError("Password too short")
+            raise ValueError("Пароль слишком короткий")
         return v
-
 
 class RegisterCredentials(BaseModel):
     username: NonEmptyStr
     password: NonEmptyStr
     role: Optional[UserRole] = (
         UserRole.MANAGER
-    )  # Default manager, admin только для privileged
-
-    # Validators как выше
-
+    )
 
 class AuthTokenSchema(BaseModel):
-    access_token: str  # Изменено с token на access_token
+    access_token: str
     token_type: str = "bearer"
-
 
 class AuthTokenPayload(BaseModel):
     user_id: int
-    role: Optional[UserRole] = None  # Опционально для ролей в payload, если нужно
-
+    role: Optional[UserRole] = None
 
 class UserResponse(BaseModel):
     id: int

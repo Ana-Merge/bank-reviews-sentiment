@@ -19,7 +19,6 @@ class BankiRuParser:
     def parse_date_string(self, date_str: str) -> Optional[datetime]:
         """Преобразует строку даты в datetime объект"""
         try:
-            # Формат "17.09.2025 08:45"
             return datetime.strptime(date_str, '%d.%m.%Y %H:%M')
         except ValueError:
             return None
@@ -50,6 +49,7 @@ class BankiRuParser:
         from app.core.try_to_surf import try_to_surf as original_try_to_surf
         return original_try_to_surf(context, url, wait_class)
 
+    # banki_parser.py - обновите метод get_reviews_page
     def get_reviews_page(self, context, bank_slug: str, product: str, page_num: int) -> List[Dict]:
         """Получает отзывы с одной страницы"""
         url = f'{self.base_url}{bank_slug}/product/{product}/?page={page_num}&type=all&bank={bank_slug}'
@@ -70,6 +70,9 @@ class BankiRuParser:
                 
                 title_link = x.find('h3', class_='TextResponsive__sc-hroye5-0')
                 review_theme = title_link.get_text(strip=True) if title_link else ''
+                # Обрезаем тему отзыва до 500 символов
+                if len(review_theme) > 500:
+                    review_theme = review_theme[:497] + "..."
 
                 grade_div = x.find('div', class_='Grade__sc-m0t12o-0')
                 rating = grade_div.get_text(strip=True) if grade_div else 'Без оценки'
@@ -87,7 +90,6 @@ class BankiRuParser:
                 date_span = x.find('span', class_='Responsesstyled__StyledItemSmallText-sc-150koqm-4')
                 review_date = date_span.get_text(strip=True) if date_span else ''
 
-                # Проверяем дату
                 if review_date and not self.is_date_in_range(review_date):
                     continue
 
@@ -132,7 +134,7 @@ class BankiRuParser:
                 product_reviews = []
                 page_num = 1
                 consecutive_empty_pages = 0
-                max_consecutive_empty = 3  # Останавливаемся после 3 пустых страниц подряд
+                max_consecutive_empty = 3
 
                 while page_num <= self.config.max_pages and consecutive_empty_pages < max_consecutive_empty:
                     print(f'Страница {page_num} для продукта {product}')
@@ -147,7 +149,6 @@ class BankiRuParser:
                         product_reviews.extend(reviews)
                         print(f'Найдено {len(reviews)} отзывов на странице {page_num}')
 
-                    # Проверка памяти
                     process = psutil.Process(os.getpid())
                     memory_usage = process.memory_info().rss
                     if memory_usage > MEMORY_THRESHOLD or pages_processed >= 1000:
@@ -162,7 +163,6 @@ class BankiRuParser:
                     page_num += 1
                     pages_processed += 1
                     
-                    # Задержка между запросами
                     time.sleep(self.config.delay_between_requests)
 
                 results[product] = product_reviews

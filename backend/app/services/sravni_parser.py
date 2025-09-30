@@ -14,10 +14,8 @@ class SravniRuParser:
     def parse_date_string(self, date_str: str) -> Optional[datetime]:
         """Преобразует строку даты в datetime объект"""
         try:
-            # Формат "2025-09-19T12:10:42.081749Z"
-            # Преобразуем в наивный datetime (без временной зоны)
             dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return dt.replace(tzinfo=None)  # Убираем временную зону
+            return dt.replace(tzinfo=None)
         except ValueError:
             return None
 
@@ -53,7 +51,6 @@ class SravniRuParser:
         page_index = 0
         total = None
         
-        # Заголовки для запросов
         headers = {
             "Host": "www.sravni.ru",
             "X-Request-Id": str(uuid.uuid4()),
@@ -64,7 +61,6 @@ class SravniRuParser:
             "Referer": "https://www.sravni.ru/"
         }
         
-        # Получаем review_object_id для банка из маппинга
         review_object_id = self.get_review_object_id(bank_slug)
         if not review_object_id:
             print(f"Не найден review_object_id для банка {bank_slug}")
@@ -91,21 +87,17 @@ class SravniRuParser:
                 data = response.json()
                 items = data.get("items", [])
                 
-                # Фильтруем отзывы по дате
                 filtered_items = []
                 for item in items:
                     date_str = item.get("date", "")
                     if not date_str:
-                        # Если даты нет, пропускаем отзыв
                         continue
                         
                     if self.is_date_in_range(date_str):
-                        # Преобразуем данные в нужный формат
                         transformed_review = self.transform_review_data(item, bank_slug)
                         filtered_items.append(transformed_review)
                     else:
-                        # Если дата вне диапазона, останавливаем парсинг (предполагаем, что отзывы идут от новых к старым)
-                        if page_index > 0:  # Не останавливаемся на первой странице
+                        if page_index > 0:
                             print(f"Дата {date_str} вне диапазона, останавливаем парсинг для {bank_slug}")
                             return all_reviews
                 
@@ -133,16 +125,13 @@ class SravniRuParser:
         Получает review_object_id для банка по его slug.
         Здесь нужно реализовать маппинг slug -> review_object_id
         """
-        # Пример маппинга - нужно дополнить актуальными данными
         bank_mapping = {
-        # Английские slug
             "gazprombank": "5bb4f768245bc22a520a6115",
             "sberbank": "5bb4f768245bc22a520a6116",
             "vtb": "5bb4f768245bc22a520a6117",
             "alfabank": "5bb4f768245bc22a520a6118",
             "tinkoff": "5bb4f768245bc22a520a6119",
             
-            # Русские названия
             "газпромбанк": "5bb4f768245bc22a520a6115",
             "сбербанк": "5bb4f768245bc22a520a6116",
             "втб": "5bb4f768245bc22a520a6117",
@@ -158,22 +147,18 @@ class SravniRuParser:
         """
         Преобразует данные отзыва из формата sravni.ru в наш формат.
         """
-        # Преобразуем дату
         review_date = self.parse_date_string(item.get("date", ""))
         
-        # Получаем рейтинг
         rating = item.get("rating")
         if rating is not None:
             rating_str = str(rating)
         else:
             rating_str = "Без оценки"
         
-        # Получаем product_name из reviewTag
         product_name = item.get("reviewTag", "general")
         if not product_name or product_name == "null":
             product_name = "general"
         
-        # Получаем bank_name из item или используем bank_slug
         bank_name = item.get("bank_name", bank_slug)
         if not bank_name:
             bank_name = bank_slug
@@ -218,7 +203,6 @@ class SravniRuParser:
                 print(f"Ошибка при парсинге банка {bank_slug}: {e}")
                 results[bank_slug] = []
             
-            # Задержка между банками
             time.sleep(self.config.get('delay_between_requests', 1.0) * 2)
 
         return results

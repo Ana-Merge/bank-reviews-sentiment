@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from datetime import date
 from app.services.parser_config import ParserConfig
 from app.services.banki_parser import BankiRuParser
 from app.repositories.repositories import ReviewsForModelRepository
@@ -74,20 +74,250 @@ class ParserService:
 
     async def get_parsing_status(self, session: AsyncSession, bank_slug: str) -> Dict[str, Any]:
         """Получить статистику по спарсенным данным"""
-        # Получаем количество отзывов по продуктам
         products_stats = {}
         total_reviews = 0
-        
-        # Здесь можно добавить логику для получения статистики из базы
-        # Например, количество отзывов по каждому продукту
-        
+    
         return {
             "bank_slug": bank_slug,
             "total_reviews": total_reviews,
             "products_stats": products_stats,
-            "last_parsed": None  # Можно добавить поле с временем последнего парсинга
+            "last_parsed": None
         }
     
+    async def process_parsed_reviews(
+        self,
+        session: AsyncSession,
+        bank_slug: str,
+        product_name: str,
+        limit: int = 1000,
+        mark_processed: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Обработка спарсенных отзывов и перенос в основные таблицы
+        """
+        try:
+            # Получаем непереработанные отзывы
+            unprocessed_reviews = await self._reviews_for_model_repo.get_all(
+                session, page=0, size=limit, processed=False
+            )
+            
+            # Фильтруем по банку и продукту
+            filtered_reviews = [
+                review for review in unprocessed_reviews 
+                if review.bank_slug == bank_slug and review.product_name == product_name
+            ]
+            
+            if not filtered_reviews:
+                return {
+                    "status": "success",
+                    "bank_slug": bank_slug,
+                    "product_name": product_name,
+                    "reviews_processed": 0,
+                    "reviews_created": 0,
+                    "products_created": 0,
+                    "message": "No unprocessed reviews found for specified bank and product"
+                }
+            
+            # Репозитории для работы с основными таблицами
+            from app.repositories.repositories import ProductRepository, ReviewRepository
+            product_repo = ProductRepository()
+            review_repo = ReviewRepository()
+            
+            # Получаем или создаем продукт
+            product = await product_repo.get_by_name(session, product_name)
+            products_created = 0
+            
+            if not product:
+                from app.models.models import Product, ProductType, ClientType
+                product = Product(
+                    name=product_name,
+                    type=ProductType.PRODUCT,
+                    client_type=ClientType.BOTH,
+                    level=0
+                )
+                product = await product_repo.save(session, product)
+                products_created = 1
+                logger.info(f"Created new product: {product_name}")
+            
+            # Обрабатываем отзывы
+            reviews_created = 0
+            review_ids_to_mark = []
+            
+            for parsed_review in filtered_reviews:
+                try:
+                    # Пропускаем отзывы с оценкой 0
+                    rating = self._parse_rating(parsed_review.rating)
+                    if rating == 0:
+                        continue
+                    
+                    # Определяем тональность
+                    sentiment = self._determine_sentiment(rating)
+                    
+                    # Парсим дату
+                    review_date = self._parse_review_date(parsed_review.review_date)
+                    if not review_date:
+                        continue
+                    
+                    # Определяем источник из URL
+                    source = self._parse_source_from_url(parsed_review.source_url)
+                    
+                    # Создаем отзыв для основной таблицы
+                    from app.models.models import Review
+                    review = Review(
+                        text=parsed_review.review_text,
+                        date=review_date,
+                        rating=rating,
+                        sentiment=sentiment,
+                        sentiment_score=self._calculate_sentiment_score(sentiment),
+                        source=source
+                    )
+                    
+                    # Сохраняем отзыв
+                    saved_review = await review_repo.save(session, review)
+                    
+                    # Добавляем связь с продуктом
+                    await review_repo.add_products_to_review(
+                        session, saved_review.id, [product.id]
+                    )
+                    
+                    reviews_created += 1
+                    review_ids_to_mark.append(parsed_review.id)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing review {parsed_review.id}: {str(e)}")
+                    continue
+            
+            # Помечаем отзывы как обработанные
+            if mark_processed and review_ids_to_mark:
+                await self._reviews_for_model_repo.mark_bulk_as_processed(
+                    session, review_ids_to_mark
+                )
+            
+            return {
+                "status": "success",
+                "bank_slug": bank_slug,
+                "product_name": product_name,
+                "reviews_processed": len(filtered_reviews),
+                "reviews_created": reviews_created,
+                "products_created": products_created,
+                "message": f"Successfully processed {reviews_created} reviews"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing parsed reviews: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Processing failed: {str(e)}"
+            }
+
+    def _parse_source_from_url(self, url: str) -> str:
+        """Парсит источник из URL строки"""
+        if not url:
+            return "unknown"
+        
+        try:
+            # Приводим к нижнему регистру для удобства сравнения
+            url_lower = url.lower()
+            
+            # Проверяем наличие ключевых слов в URL
+            if 'banki.ru' in url_lower:
+                return "Banki.ru"
+            elif 'sravni.ru' in url_lower:
+                return "Sravni.ru"
+            else:
+                # Если не нашли известные источники, возвращаем домен
+                from urllib.parse import urlparse
+                parsed_url = urlparse(url)
+                domain = parsed_url.netloc
+                if domain.startswith('www.'):
+                    domain = domain[4:]
+                return domain if domain else "unknown"
+                
+        except Exception as e:
+            logger.warning(f"Could not parse source from URL {url}: {str(e)}")
+            return "unknown"
+        
+    def _parse_rating(self, rating_str: str) -> int:
+        """Парсит строку с рейтингом в число для обоих источников"""
+        if not rating_str or rating_str == 'Без оценки':
+            return 0
+        
+        try:
+            import re
+            
+            # Удаляем лишние слова и символы
+            cleaned_rating = rating_str.lower()
+            cleaned_rating = re.sub(r'[зз]в[её]зд?', '', cleaned_rating)  # удаляем "звезд", "звёзд" (для Sravni)
+            cleaned_rating = re.sub(r'[^0-9/]', '', cleaned_rating)  # оставляем только цифры и /
+            
+            # Извлекаем первое число
+            numbers = re.findall(r'\d+', cleaned_rating)
+            if numbers:
+                rating = int(numbers[0])
+                # Если рейтинг в формате "5/5", берем первое число
+                return min(rating, 5)  # ограничиваем максимальным рейтингом 5
+            return 0
+        except (ValueError, TypeError):
+            return 0
+
+    def _parse_review_date(self, date_str: str) -> Optional[date]:
+        """Парсит дату отзыва для обоих источников"""
+        try:
+            from datetime import datetime
+            
+            if not date_str:
+                return None
+                
+            # Пробуем разные форматы дат
+            date_formats = [
+                '%d.%m.%Y %H:%M',     # 01.01.2023 14:30 (Banki.ru)
+                '%d.%m.%Y',           # 01.01.2023
+                '%Y-%m-%d',           # 2023-01-01
+                '%d %B %Y',           # 01 января 2023 (Sravni.ru)
+                '%d %b %Y',           # 01 янв 2023 (Sravni.ru)
+            ]
+            
+            for date_format in date_formats:
+                try:
+                    return datetime.strptime(date_str, date_format).date()
+                except ValueError:
+                    continue
+            
+            # Если стандартные форматы не сработали, пробуем извлечь дату из строки
+            import re
+            date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', date_str)
+            if date_match:
+                day, month, year = date_match.groups()
+                return datetime(int(year), int(month), int(day)).date()
+                
+            logger.warning(f"Could not parse date: {date_str}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error parsing date {date_str}: {str(e)}")
+            return None
+
+    def _determine_sentiment(self, rating: int) -> str:
+        """Определяет тональность на основе рейтинга"""
+        if rating >= 4:
+            return "positive"
+        elif rating == 3:
+            return "neutral"
+        elif rating >= 1:
+            return "negative"
+        else:
+            return "neutral"  # fallback
+
+    def _calculate_sentiment_score(self, sentiment: str) -> float:
+        """Рассчитывает числовой score тональности"""
+        scores = {
+            "positive": 0.8,
+            "neutral": 0.0,
+            "negative": -0.8
+        }
+        return scores.get(sentiment, 0.0)
+
+
 
     async def run_sravni_parser(
         self, 
@@ -102,18 +332,14 @@ class ParserService:
         Запуск парсера sravni.ru для указанных банков
         """
         try:
-            # Запускаем парсер в отдельном потоке
             parsed_data = await asyncio.to_thread(
                 self._run_sravni_sync_parser, 
                 bank_slugs, start_date, end_date, max_pages, delay_between_requests
             )
             
-            # Сохраняем данные в базу
             total_saved = 0
             for bank_slug, reviews in parsed_data.items():
                 if reviews:
-                    # Для sravni.ru сохраняем все отзывы под общим продуктом "sravni_reviews"
-                    # или можно разбить по reviewTag если нужно
                     saved_count = await self._reviews_for_model_repo.save_sravni_reviews(
                         session, reviews, bank_slug
                     )

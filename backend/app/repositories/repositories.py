@@ -6,17 +6,8 @@ from datetime import date, datetime
 from app.schemas.schemas import ProductTreeNode
 from app.models.models import NotificationConfig, ReviewProduct
 
-from app.core.exceptions import (
-    EntityAlreadyExistsException,
-    EntityNotFoundException,
-)
 from app.models.models import (
-    Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog,
-    Sentiment, ProductType, ClientType, ReviewsForModel
-)
-from app.schemas.schemas import (
-    ProductCreate, ReviewCreate, ClusterCreate, ReviewClusterCreate,
-    MonthlyStatsCreate, ClusterStatsCreate
+    Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog, ReviewsForModel
 )
 
 class ProductRepository:
@@ -107,36 +98,31 @@ class ProductRepository:
         """
         Получить все продукты в виде дерева (иерархия).
         """
-        # Базовый запрос для CTE: корневые узлы (parent_id IS NULL)
         base_query = select(
             Product.id.label('id'),
             Product.name.label('name'),
             Product.type.label('type'),
             Product.client_type.label('client_type'),
             Product.parent_id.label('parent_id'),
-            Product.level.label('level')  # Используем Product.level
+            Product.level.label('level')
         ).where(Product.parent_id.is_(None))
 
         if client_type:
             base_query = base_query.where(Product.client_type == client_type)
 
-        # Рекурсивный CTE
         recursive_cte = base_query.cte("product_tree", recursive=True)
 
-        # Рекурсивная часть
         recursive_part = select(
             Product.id,
             Product.name,
             Product.type,
             Product.client_type,
             Product.parent_id,
-            Product.level  # Используем Product.level
+            Product.level 
         ).join(recursive_cte, Product.parent_id == recursive_cte.c.id)
 
-        # Полный CTE
         full_cte = recursive_cte.union_all(recursive_part)
 
-        # Запрос для получения всех узлов
         statement = select(
             full_cte.c.id,
             full_cte.c.name,
@@ -149,7 +135,6 @@ class ProductRepository:
         result = await session.execute(statement)
         rows = result.all()
 
-        # Строим дерево
         tree = []
         node_dict = {row.id: dict(row._mapping) for row in rows}
         for row in rows:
@@ -164,7 +149,6 @@ class ProductRepository:
         return tree
 
 class ReviewRepository:
-    # Новый метод для добавления связей с продуктами
     async def add_products_to_review(self, session: AsyncSession, review_id: int, product_ids: List[int]):
         for pid in product_ids:
             rp = ReviewProduct(review_id=review_id, product_id=pid)
@@ -274,7 +258,6 @@ class ReviewRepository:
         )
         if source:
             statement = statement.where(Review.source == source)
-        # Учитываем только отзывы с рейтингом
         statement = statement.where(Review.rating.isnot(None))
         result = await session.execute(statement)
         avg_rating = result.scalar() or 0.0
@@ -376,7 +359,6 @@ class ReviewClusterRepository:
             return True
         return False
 
-    # Новый метод для подсчета отзывов по кластеру и периоду
     async def count_by_cluster_and_period(
         self, session: AsyncSession, cluster_id: int, product_ids: List[int], 
         start_date: date, end_date: date
@@ -491,7 +473,6 @@ class NotificationRepository:
             return True
         return False
 
-
 class NotificationConfigRepository:
     async def get_by_id(self, session: AsyncSession, config_id: int, user_id: int) -> NotificationConfig | None:
         statement = select(NotificationConfig).where(
@@ -535,7 +516,6 @@ class NotificationConfigRepository:
         result = await session.execute(statement)
         return result.scalars().all()
     
-
 class ReviewsForModelRepository:
     async def get_by_id(self, session: AsyncSession, review_id: int) -> ReviewsForModel | None:
         statement = select(ReviewsForModel).where(ReviewsForModel.id == review_id)

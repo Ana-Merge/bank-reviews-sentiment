@@ -57,7 +57,6 @@ class NotificationService:
             if not product:
                 continue
 
-            # Получаем всех потомков продукта (включая сам продукт)
             descendants = await self._product_repo.get_all_descendants(session, config.product_id)
             product_ids = [config.product_id] + [d.id for d in descendants]
 
@@ -71,7 +70,6 @@ class NotificationService:
             current_end = current_month + relativedelta(months=1) - timedelta(days=1)
             prev_end = prev_month + relativedelta(months=1) - timedelta(days=1)
 
-            # Получаем статистику по отзывам через ReviewProduct
             current_review_count = await self._review_repo.count_by_product_and_period(
                 session, product_ids, current_month, current_end
             )
@@ -134,7 +132,6 @@ class NotificationService:
                     message = f"Negative reviews appeared for product {product.name}: {current_negative} negative reviews"
 
             if message:
-                # Используем config.notification_type напрямую (это уже строка)
                 await self.generate_notification(session, config.user_id, message, config.notification_type)
                 await self._audit_log_repo.save(session, config.user_id, f"Generated auto-notification: {config.notification_type}")
 
@@ -144,7 +141,7 @@ class NotificationService:
         notification = Notification(
             user_id=user_id, 
             message=message, 
-            type=notification_type  # Используем строку напрямую
+            type=notification_type
         )
         saved = await self._notification_repo.save(session, notification)
         await self._audit_log_repo.save(session, user_id, f"Generated notification: {notification_type}")

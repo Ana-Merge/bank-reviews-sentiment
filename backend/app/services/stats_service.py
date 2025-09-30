@@ -47,7 +47,7 @@ class StatsService:
             try:
                 return datetime.strptime(date_str, "%Y-%m-%d").date()
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
+                raise ValueError(f"Неправильный формат {date_str}. Ожидается YYYY-MM-DD") from e
 
         try:
             start_date_parsed = parse_date(start_date)
@@ -58,9 +58,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         products = await self._product_repo.get_all(session)
         stats = []
@@ -120,7 +120,7 @@ class StatsService:
                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
+                raise ValueError(f"Неправильный формат {date_str}. Ожидается {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
 
         try:
             start_date_parsed = parse_date(start_date, aggregation_type, is_start_date=True)
@@ -131,9 +131,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -146,7 +146,7 @@ class StatsService:
             product_ids = [product_id]
 
         if aggregation_type not in ["month", "week", "day"]:
-            raise ValueError("Invalid aggregation type. Must be 'month', 'week', or 'day'.")
+            raise ValueError("Неправильный aggregation type. Должно быть 'month', 'week', или 'day'.")
 
         if aggregation_type == "month":
             date_trunc = "month"
@@ -158,7 +158,6 @@ class StatsService:
             date_trunc = "day"
             date_format = "%Y-%m-%d"
 
-        # Query for period1
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
@@ -185,7 +184,6 @@ class StatsService:
                 period1_dict[agg_date_str] = {"positive": 0, "neutral": 0, "negative": 0}
             period1_dict[agg_date_str][row.sentiment] = row.count
         
-        # Query for period2
         period2_query = select(
             agg_date,
             Review.sentiment,
@@ -211,12 +209,10 @@ class StatsService:
                 period2_dict[agg_date_str] = {"positive": 0, "neutral": 0, "negative": 0}
             period2_dict[agg_date_str][row.sentiment] = row.count
         
-        # Generate date ranges
         def generate_date_range(start: datetime.date, end: datetime.date, agg_type: str) -> List[str]:
             result = []
             current = start
             if agg_type == "week":
-                # Начинаем с понедельника недели, содержащей start date
                 days_to_monday = current.weekday()
                 current = current - timedelta(days=days_to_monday)
             while current <= end:
@@ -230,7 +226,7 @@ class StatsService:
                 elif agg_type == "week":
                     result.append(current.strftime("%Y-%m-%d"))
                     current += timedelta(days=7)
-                else:  # day
+                else:
                     result.append(current.strftime("%Y-%m-%d"))
                     current += timedelta(days=1)
             return result
@@ -238,7 +234,6 @@ class StatsService:
         period1_dates = generate_date_range(start_date_parsed, end_date_parsed, aggregation_type)
         period2_dates = generate_date_range(start_date2_parsed, end_date2_parsed, aggregation_type)
 
-        # Format period1 and period2
         period1 = [
             {
                 "aggregation": date,
@@ -254,7 +249,6 @@ class StatsService:
             for date in period2_dates
         ]
 
-        # Calculate changes - сравниваем соответствующие позиции в периодах
         changes = []
         min_length = min(len(period1), len(period2))
         
@@ -265,16 +259,15 @@ class StatsService:
             period1_tonality = period1_item["tonality"]
             period2_tonality = period2_item["tonality"]
             
-            # Безопасный расчет процентных изменений
             def safe_percentage_change(current, previous):
                 if previous > 0:
                     return round(((current - previous) / previous * 100), 1)
                 elif current > 0:
-                    return 100.0  # Рост от 0 до положительного значения
+                    return 100.0 
                 elif previous > 0 and current == 0:
-                    return -100.0  # Падение от положительного до 0
+                    return -100.0 
                 else:
-                    return 0.0  # Оба значения 0
+                    return 0.0
 
             percentage_change = {
                 "positive": safe_percentage_change(period1_tonality["positive"], period2_tonality["positive"]),
@@ -282,13 +275,11 @@ class StatsService:
                 "negative": safe_percentage_change(period1_tonality["negative"], period2_tonality["negative"])
             }
             
-            # Используем дату из первого периода для агрегации
             changes.append({
                 "aggregation": period1_item["aggregation"],
                 "percentage_change": percentage_change
             })
 
-        # Если периоды разной длины, добавляем оставшиеся даты без изменений
         if len(period1) > min_length:
             for i in range(min_length, len(period1)):
                 changes.append({
@@ -333,7 +324,7 @@ class StatsService:
                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
+                raise ValueError(f"Неправильный формат даты {date_str}. Ожидается {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
 
         try:
             start_date_parsed = parse_date(start_date, aggregation_type, is_start_date=True)
@@ -344,9 +335,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -359,7 +350,7 @@ class StatsService:
             product_ids = [product_id]
 
         if aggregation_type not in ["month", "week", "day"]:
-            raise ValueError("Invalid aggregation type. Must be 'month', 'week', or 'day'.")
+            raise ValueError("Неправильный aggregation type. Должно быть 'month', 'week', или 'day'.")
 
         if aggregation_type == "month":
             date_trunc = "month"
@@ -371,7 +362,6 @@ class StatsService:
             date_trunc = "day"
             date_format = "%Y-%m-%d"
 
-        # Query for period1 - общее количество отзывов
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
@@ -394,7 +384,6 @@ class StatsService:
             agg_date_str = row.agg_date.strftime(date_format)
             period1_dict[agg_date_str] = row.count
         
-        # Query for period2 - общее количество отзывов
         period2_query = select(
             agg_date,
             func.count(func.distinct(Review.id)).label("count")
@@ -416,7 +405,6 @@ class StatsService:
             agg_date_str = row.agg_date.strftime(date_format)
             period2_dict[agg_date_str] = row.count
         
-        # Generate date ranges
         def generate_date_range(start: datetime.date, end: datetime.date, agg_type: str) -> List[str]:
             result = []
             current = start
@@ -434,7 +422,7 @@ class StatsService:
                 elif agg_type == "week":
                     result.append(current.strftime("%Y-%m-%d"))
                     current += timedelta(days=7)
-                else:  # day
+                else:
                     result.append(current.strftime("%Y-%m-%d"))
                     current += timedelta(days=1)
             return result
@@ -442,7 +430,6 @@ class StatsService:
         period1_dates = generate_date_range(start_date_parsed, end_date_parsed, aggregation_type)
         period2_dates = generate_date_range(start_date2_parsed, end_date2_parsed, aggregation_type)
 
-        # Format period1 and period2
         period1 = [
             {
                 "aggregation": date,
@@ -458,30 +445,27 @@ class StatsService:
             for date in period2_dates
         ]
 
-        # Calculate changes - сравниваем соответствующие позиции в периодах
         changes = []
         min_length = min(len(period1), len(period2))
         
         for i in range(min_length):
             period1_count = period1[i]["count"]
             period2_count = period2[i]["count"]
-            
-            # Безопасный расчет процентных изменений
+
             if period2_count > 0:
                 change_percent = round(((period1_count - period2_count) / period2_count * 100), 1)
             elif period1_count > 0:
-                change_percent = 100.0  # Рост от 0 до положительного значения
+                change_percent = 100.0
             elif period2_count > 0 and period1_count == 0:
-                change_percent = -100.0  # Падение от положительного до 0
+                change_percent = -100.0
             else:
-                change_percent = 0.0  # Оба значения 0
+                change_percent = 0.0
             
             changes.append({
                 "aggregation": period1[i]["aggregation"],
                 "change_percent": change_percent
             })
 
-        # Если периоды разной длины, добавляем оставшиеся даты без изменений
         if len(period1) > min_length:
             for i in range(min_length, len(period1)):
                 changes.append({
@@ -501,74 +485,6 @@ class StatsService:
             "changes": changes
         }
 
-    # async def get_monthly_pie_chart(
-    #     self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
-    #     start_date2: str, end_date2: str, source: Optional[str] = None
-    # ) -> Dict[str, Any]:
-    #     def parse_date(date_str: str) -> date:
-    #         try:
-    #             return datetime.strptime(date_str, "%Y-%m-%d").date()
-    #         except ValueError as e:
-    #             raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
-
-    #     try:
-    #         start_date_parsed = parse_date(start_date)
-    #         end_date_parsed = parse_date(end_date)
-    #         start_date2_parsed = parse_date(start_date2)
-    #         end_date2_parsed = parse_date(end_date2)
-    #     except ValueError as e:
-    #         raise ValueError(str(e))
-
-    #     if start_date_parsed > end_date_parsed:
-    #         raise ValueError("start_date must be before or equal to end_date")
-    #     if start_date2_parsed > end_date2_parsed:
-    #         raise ValueError("start_date2 must be before or equal to end_date2")
-
-    #     product = await self._product_repo.get_by_id(session, product_id)
-    #     if not product:
-    #         return {
-    #             "period1": {"labels": [], "data": [], "colors": [], "total": 0},
-    #             "period2": {"labels": [], "data": [], "colors": [], "total": 0},
-    #             "changes": {"labels": [], "percentage_point_changes": []}
-    #         }
-
-    #     if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
-    #         descendants = await self._product_repo.get_all_descendants(session, product_id)
-    #         product_ids = [p.id for p in descendants] + [product_id]
-    #     else:
-    #         product_ids = [product_id]
-
-    #     total1 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
-    #     tonality1 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
-    #     if total1 > 0:
-    #         data1 = [
-    #             round(tonality1.get('negative', 0) / total1 * 100, 1),
-    #             round(tonality1.get('neutral', 0) / total1 * 100, 1),
-    #             round(tonality1.get('positive', 0) / total1 * 100, 1)
-    #         ]
-    #     else:
-    #         data1 = [0.0, 0.0, 0.0]
-
-    #     total2 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
-    #     tonality2 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
-    #     if total2 > 0:
-    #         data2 = [
-    #             round(tonality2.get('negative', 0) / total2 * 100, 1),
-    #             round(tonality2.get('neutral', 0) / total2 * 100, 1),
-    #             round(tonality2.get('positive', 0) / total2 * 100, 1)
-    #         ]
-    #     else:
-    #         data2 = [0.0, 0.0, 0.0]
-
-    #     percentage_point_changes = [data1[i] - data2[i] for i in range(3)]
-    #     labels = ["negative", "neutral", "positive"]
-    #     colors = ["red", "yellow", "green"]
-
-    #     return {
-    #         "period1": {"labels": labels, "data": data1, "colors": colors, "total": total1},
-    #         "period2": {"labels": labels, "data": data2, "colors": colors, "total": total2},
-    #         "changes": {"labels": labels, "percentage_point_changes": percentage_point_changes}
-    #     }
 
     async def get_monthly_pie_chart(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
@@ -589,7 +505,7 @@ class StatsService:
                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD or YYYY-MM") from e
+                raise ValueError(f"Неправильный формат даты {date_str}. Ожидается YYYY-MM-DD или YYYY-MM") from e
 
         try:
             start_date_parsed = parse_date(start_date, is_start_date=True)
@@ -600,9 +516,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed and end_date2_parsed and start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -630,7 +546,6 @@ class StatsService:
         cluster_ids = [c.id for c in clusters]
         colors = [self._get_color_for_cluster(c.id) for c in clusters]
 
-        # Total for period1
         period1_total_query = select(func.count(func.distinct(Review.id)).label("total")) \
             .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
             .where(
@@ -643,7 +558,6 @@ class StatsService:
         period1_total_result = await session.execute(period1_total_query)
         period1_total = period1_total_result.scalar() or 0
 
-        # Counts per cluster for period1
         period1_query = select(
             ReviewCluster.cluster_id,
             func.count(func.distinct(Review.id)).label("count")
@@ -672,7 +586,6 @@ class StatsService:
         period2_total = 0
         period2_percentages = [0.0] * len(clusters)
         if start_date2_parsed and end_date2_parsed:
-            # Total for period2
             period2_total_query = select(func.count(func.distinct(Review.id)).label("total")) \
                 .join(ReviewProduct, ReviewProduct.review_id == Review.id) \
                 .where(
@@ -685,7 +598,6 @@ class StatsService:
             period2_total_result = await session.execute(period2_total_query)
             period2_total = period2_total_result.scalar() or 0
 
-            # Counts per cluster for period2
             period2_query = select(
                 ReviewCluster.cluster_id,
                 func.count(func.distinct(Review.id)).label("count")
@@ -711,13 +623,11 @@ class StatsService:
                 for c in clusters
             ]
 
-        # Calculate percentage point changes (absolute difference)
         percentage_point_changes = [
             round(period2_percentages[i] - period1_percentages[i], 1)
             for i in range(len(clusters))
         ]
 
-        # Calculate relative percentage changes (growth)
         relative_percentage_changes = []
         for i in range(len(clusters)):
             p1 = period1_percentages[i]
@@ -725,7 +635,7 @@ class StatsService:
             if p1 > 0:
                 change = round(((p2 - p1) / p1) * 100, 1)
             elif p2 > 0:
-                change = 100.0  # Arbitrary value for new clusters
+                change = 100.0
             else:
                 change = 0.0
             relative_percentage_changes.append(change)
@@ -757,11 +667,11 @@ class StatsService:
         start_date2: str, end_date2: str, source: Optional[str] = None
     ) -> Dict[str, Any]:
         def parse_date(date_str: str) -> date:
-            """Parse date string in YYYY-MM-DD format."""
+            """Парсинг даты в формат YYYY-MM-DD"""
             try:
                 return datetime.strptime(date_str, "%Y-%m-%d").date()
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
+                raise ValueError(f"Неправильный формат даты {date_str}. Ожидается YYYY-MM-DD") from e
 
         try:
             start_date_parsed = parse_date(start_date)
@@ -772,9 +682,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -836,7 +746,6 @@ class StatsService:
         prev_start = start_date - timedelta(days=30)
         
         for cluster in clusters:
-            # Подсчет общего количества отзывов для кластера (с учетом связи через review_products)
             total_count_query = select(func.count(func.distinct(Review.id))).select_from(ReviewCluster)\
                 .join(Review).join(ReviewProduct).where(
                     and_(
@@ -853,7 +762,6 @@ class StatsService:
             if total_count == 0:
                 continue
 
-            # Подсчет количества отзывов за предыдущий период
             prev_count_query = select(func.count(func.distinct(Review.id))).select_from(ReviewCluster)\
                 .join(Review).join(ReviewProduct).where(
                     and_(
@@ -869,8 +777,6 @@ class StatsService:
             
             change_percent = round(((total_count - prev_count) / prev_count * 100), 1) if prev_count > 0 else 100.0 if total_count > 0 else 0.0
             logger.debug(f"Change percent: {change_percent}")
-
-            # Запрос для тональности с учетом взвешенных counts
             effective_sentiment = func.coalesce(ReviewCluster.sentiment_contribution, Review.sentiment).label("effective_sentiment")
             statement = select(
                 effective_sentiment,
@@ -900,7 +806,6 @@ class StatsService:
             total_tonality = sum(tonality.values())
             logger.debug(f"Tonality for cluster {cluster.name}: {tonality}, Total: {total_tonality}")
 
-            # Расчет процентов для тональности
             data = []
             if total_tonality > 0:
                 data = [
@@ -931,7 +836,7 @@ class StatsService:
     ) -> Dict[str, List[Dict[str, Any]]]:
 
         def parse_date(date_str: str, agg_type: str, is_start_date: bool) -> datetime.date:
-            """Parse date string based on aggregation type and whether it's a start or end date."""
+            """Парсинг даты с агрегацией."""
             try:
                 if agg_type == "month":
                     year, month = map(int, date_str.split("-"))
@@ -944,7 +849,7 @@ class StatsService:
                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
+                raise ValueError(f"Неправильный формат даты {date_str}. Ожидается {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
 
         try:
             start_date_parsed = parse_date(start_date, aggregation_type, is_start_date=True)
@@ -955,9 +860,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed and end_date2_parsed and start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -970,7 +875,7 @@ class StatsService:
             product_ids = [product_id]
 
         if aggregation_type not in ["month", "week", "day"]:
-            raise ValueError("Invalid aggregation type. Must be 'month', 'week', or 'day'.")
+            raise ValueError("Неправильный aggregation type. Должно быть 'month', 'week', или 'day'.")
 
         if aggregation_type == "month":
             date_trunc = "month"
@@ -993,12 +898,11 @@ class StatsService:
         if not clusters:
             return {"period1": [], "period2": [], "changes": []}
 
-        # Query for period1 - исправленный запрос с учетом связи через review_products
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
             ReviewCluster.cluster_id,
-            func.count(func.distinct(Review.id)).label("total")  # Учитываем уникальные отзывы
+            func.count(func.distinct(Review.id)).label("total")
         ).select_from(ReviewCluster)\
         .join(Review).join(ReviewProduct).where(
             and_(
@@ -1029,7 +933,6 @@ class StatsService:
 
         period2_dict = {}
         if start_date2_parsed and end_date2_parsed:
-            # Query for period2 - аналогично исправленный запрос
             period2_query = select(
                 agg_date,
                 ReviewCluster.cluster_id,
@@ -1102,7 +1005,6 @@ class StatsService:
             for date in period2_dates
         ]
 
-        # Calculate changes - теперь сравниваем второй период с первым (p2 относительно p1)
         changes = []
         min_length = min(len(period1), len(period2))
         
@@ -1115,31 +1017,27 @@ class StatsService:
 
             percentage_change = {}
             for cluster_name in default_clusters:
-                p1_count = period1_clusters[cluster_name]  # Первый период (база для сравнения)
-                p2_count = period2_clusters[cluster_name]  # Второй период (сравниваемый)
+                p1_count = period1_clusters[cluster_name]
+                p2_count = period2_clusters[cluster_name]
                 
-                # Безопасный расчет процентных изменений: (p2 - p1) / p1 * 100
                 if p2_count > 0:
                     change_percent = round(((p1_count - p2_count) / p2_count * 100), 1)
                 elif p1_count > 0:
-                    change_percent = 100.0  # Рост от 0 до положительного значения
+                    change_percent = 100.0
                 elif p2_count > 0 and p1_count == 0:
-                    change_percent = -100.0  # Падение от положительного до 0
+                    change_percent = -100.0
                 else:
-                    change_percent = 0.0  # Оба значения 0
+                    change_percent = 0.0 
                     
                 percentage_change[cluster_name] = change_percent
 
             changes.append({
-                "aggregation": period1_item["aggregation"],  # Используем дату из первого периода
+                "aggregation": period1_item["aggregation"],
                 "percentage_change": percentage_change
             })
 
-        # Если периоды разной длины, добавляем оставшиеся даты
         if len(period1) > min_length:
             for i in range(min_length, len(period1)):
-                # Для дат, которые есть только в первом периоде - изменения -100% (потому что во втором периоде их нет)
-                period1_clusters = period1[i]["clusters"]
                 percentage_change = {}
                 for cluster_name in default_clusters:
                     p1_count = period1_clusters[cluster_name]
@@ -1151,7 +1049,6 @@ class StatsService:
                 })
         elif len(period2) > min_length:
             for i in range(min_length, len(period2)):
-                # Для дат, которые есть только во втором периоде - изменения +100% (потому что в первом периоде их нет)
                 period2_clusters = period2[i]["clusters"]
                 percentage_change = {}
                 for cluster_name in default_clusters:
@@ -1178,7 +1075,7 @@ class StatsService:
             try:
                 return datetime.strptime(date_str, "%Y-%m-%d").date()
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected YYYY-MM-DD") from e
+                raise ValueError(f"Неправильный формат даты {date_str}. Ожидается YYYY-MM-DD") from e
 
         try:
             start_date_parsed = parse_date(start_date)
@@ -1189,9 +1086,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -1207,7 +1104,6 @@ class StatsService:
         else:
             product_ids = [product_id]
 
-        # Period 1 - с учетом связи через review_products
         total1 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
         tonality1 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
         
@@ -1220,7 +1116,6 @@ class StatsService:
         else:
             data1 = [0.0, 0.0, 0.0]
 
-        # Period 2 - аналогично
         total2 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
         tonality2 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
         
@@ -1233,24 +1128,21 @@ class StatsService:
         else:
             data2 = [0.0, 0.0, 0.0]
 
-        # Changes - процентные изменения и процентные пункты
         percentage_point_changes = [data1[i] - data2[i] for i in range(3)]
         
-        # Добавляем процентные изменения (relative changes)
         percentage_changes = []
         for i in range(3):
             p1_value = data1[i]
             p2_value = data2[i]
-            
-            # Расчет процентного изменения: (p1 - p2) / p2 * 100
+
             if p2_value > 0:
                 percentage_change = round(((p1_value - p2_value) / p2_value * 100), 1)
             elif p1_value > 0:
-                percentage_change = 100.0  # Рост от 0 до положительного значения
+                percentage_change = 100.0 
             elif p2_value > 0 and p1_value == 0:
-                percentage_change = -100.0  # Падение от положительного до 0
+                percentage_change = -100.0 
             else:
-                percentage_change = 0.0  # Оба значения 0
+                percentage_change = 0.0 
                 
             percentage_changes.append(percentage_change)
 
@@ -1282,7 +1174,7 @@ class StatsService:
         start_date2: str, end_date2: str, aggregation_type: str, source: Optional[str] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         def parse_date(date_str: str, agg_type: str, is_start_date: bool) -> date:
-            """Parse date string based on aggregation type and whether it's a start or end date."""
+            """Парсинг даты с агрегацией."""
             try:
                 if agg_type == "month":
                     year, month = map(int, date_str.split("-"))
@@ -1295,7 +1187,7 @@ class StatsService:
                     parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 return parsed_date
             except ValueError as e:
-                raise ValueError(f"Invalid date format for {date_str}. Expected {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
+                raise ValueError(f"Неправильный форммат даты {date_str}. Ожидается {'YYYY-MM' if agg_type == 'month' else 'YYYY-MM-DD'}") from e
 
         try:
             start_date_parsed = parse_date(start_date, aggregation_type, True)
@@ -1306,9 +1198,9 @@ class StatsService:
             raise ValueError(str(e))
 
         if start_date_parsed > end_date_parsed:
-            raise ValueError("start_date must be before or equal to end_date")
+            raise ValueError("start_date должна быть до или равна end_date")
         if start_date2_parsed > end_date2_parsed:
-            raise ValueError("start_date2 must be before or equal to end_date2")
+            raise ValueError("start_date2 должна быть до или равна end_date2")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -1321,7 +1213,7 @@ class StatsService:
             product_ids = [product_id]
 
         if aggregation_type not in ["month", "week", "day"]:
-            raise ValueError("Invalid aggregation type. Must be 'month', 'week', or 'day'.")
+            raise ValueError("Неправильный aggregation type. Должно быть 'month', 'week', или 'day'.")
 
         if aggregation_type == "month":
             date_trunc = "month"
@@ -1336,7 +1228,6 @@ class StatsService:
         sentiments = ['positive', 'neutral', 'negative']
         colors = {'positive': 'green', 'neutral': 'yellow', 'negative': 'red'}
 
-        # Query for period1 - с учетом связи через review_products
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
@@ -1356,7 +1247,6 @@ class StatsService:
         period1_result = await session.execute(period1_query)
         period1_data_raw = period1_result.all()
 
-        # Организуем данные по датам и тональностям для period1
         period1_dict = {}
         for row in period1_data_raw:
             agg_date_str = row.agg_date.strftime(date_format)
@@ -1364,7 +1254,6 @@ class StatsService:
                 period1_dict[agg_date_str] = {sentiment: 0 for sentiment in sentiments}
             period1_dict[agg_date_str][row.sentiment] = row.count
 
-        # Query for period2 - аналогично
         period2_query = select(
             agg_date,
             Review.sentiment,
@@ -1390,7 +1279,6 @@ class StatsService:
                 period2_dict[agg_date_str] = {sentiment: 0 for sentiment in sentiments}
             period2_dict[agg_date_str][row.sentiment] = row.count
 
-        # Генерируем полный диапазон дат для каждого периода
         def generate_date_range(start: date, end: date, agg_type: str) -> List[str]:
             result = []
             current = start
@@ -1416,7 +1304,6 @@ class StatsService:
         period1_dates = generate_date_range(start_date_parsed, end_date_parsed, aggregation_type)
         period2_dates = generate_date_range(start_date2_parsed, end_date2_parsed, aggregation_type)
 
-        # Форматируем данные для period1
         period1_data = []
         for date_str in period1_dates:
             tonality_data = period1_dict.get(date_str, {sentiment: 0 for sentiment in sentiments})
@@ -1432,7 +1319,6 @@ class StatsService:
                 "tonalities": tonalities
             })
 
-        # Форматируем данные для period2
         period2_data = []
         for date_str in period2_dates:
             tonality_data = period2_dict.get(date_str, {sentiment: 0 for sentiment in sentiments})
@@ -1448,7 +1334,6 @@ class StatsService:
                 "tonalities": tonalities
             })
 
-        # Calculate changes - сравниваем соответствующие даты
         changes = []
         min_length = min(len(period1_data), len(period2_data))
         
@@ -1459,36 +1344,32 @@ class StatsService:
             change_data = {"date": p1_item["date"], "tonalities": []}
             
             for p1_tonality, p2_tonality in zip(p1_item["tonalities"], p2_item["tonalities"]):
-                # Абсолютное изменение: p1 - p2
                 absolute_change = p1_tonality["count"] - p2_tonality["count"]
                 
-                # Процентное изменение: (p1 - p2) / p2 * 100
                 if p2_tonality["count"] > 0:
                     percentage_change = round((absolute_change / p2_tonality["count"] * 100), 1)
                 elif p1_tonality["count"] > 0:
-                    percentage_change = 100.0  # Рост от 0 до положительного значения
+                    percentage_change = 100.0
                 elif p2_tonality["count"] > 0 and p1_tonality["count"] == 0:
-                    percentage_change = -100.0  # Падение от положительного до 0
+                    percentage_change = -100.0 
                 else:
-                    percentage_change = 0.0  # Оба значения 0
+                    percentage_change = 0.0 
                 
                 change_data["tonalities"].append({
                     "sentiment": p1_tonality["sentiment"],
-                    "change": absolute_change,  # Абсолютное изменение
-                    "change_percent": percentage_change,  # Процентное изменение
+                    "change": absolute_change,
+                    "change_percent": percentage_change, 
                     "color": p1_tonality["color"]
                 })
             
             changes.append(change_data)
 
-        # Добавляем оставшиеся даты, если периоды разной длины
         if len(period1_data) > min_length:
             for i in range(min_length, len(period1_data)):
                 change_data = {"date": period1_data[i]["date"], "tonalities": []}
                 for tonality in period1_data[i]["tonalities"]:
-                    # Для дат, которые есть только в первом периоде
-                    absolute_change = tonality["count"]  # p1 - 0 = p1
-                    percentage_change = 100.0 if tonality["count"] > 0 else 0.0  # Рост от 0 до p1
+                    absolute_change = tonality["count"]
+                    percentage_change = 100.0 if tonality["count"] > 0 else 0.0 
                     
                     change_data["tonalities"].append({
                         "sentiment": tonality["sentiment"],
@@ -1502,9 +1383,8 @@ class StatsService:
             for i in range(min_length, len(period2_data)):
                 change_data = {"date": period2_data[i]["date"], "tonalities": []}
                 for tonality in period2_data[i]["tonalities"]:
-                    # Для дат, которые есть только во втором периоде
-                    absolute_change = -tonality["count"]  # 0 - p2 = -p2
-                    percentage_change = -100.0 if tonality["count"] > 0 else 0.0  # Падение от p2 до 0
+                    absolute_change = -tonality["count"] 
+                    percentage_change = -100.0 if tonality["count"] > 0 else 0.0 
                     
                     change_data["tonalities"].append({
                         "sentiment": tonality["sentiment"],
@@ -1544,14 +1424,19 @@ class StatsService:
         return int(weight)
 
     async def get_reviews(
-        self, session: AsyncSession, product_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None,
-        cluster_id: Optional[int] = None, page: int = 0, size: int = 30
+        self, session: AsyncSession, product_id: int, start_date: Optional[date] = None, 
+        end_date: Optional[date] = None, cluster_id: Optional[int] = None, 
+        source: Optional[str] = None, order_by: str = "desc", page: int = 0, size: int = 30
     ) -> List[Dict[str, Any]]:
         import logging
         logging.basicConfig(level=logging.DEBUG)
         logger = logging.getLogger(__name__)
 
-        logger.debug(f"Fetching reviews for product_id={product_id}, cluster_id={cluster_id}, start_date={start_date}, end_date={end_date}, page={page}, size={size}")
+        logger.debug(f"Fetching reviews for product_id={product_id}, cluster_id={cluster_id}, source={source}, start_date={start_date}, end_date={end_date}, order_by={order_by}, page={page}, size={size}")
+
+        # Валидация параметра order_by
+        if order_by not in ["asc", "desc"]:
+            raise ValueError("order_by должен быть 'asc' или 'desc'")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
@@ -1564,14 +1449,20 @@ class StatsService:
         else:
             product_ids = [product_id]
 
-        # Основной запрос для получения отзывов
         statement = select(Review).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
 
+        # Фильтр по дате
         if start_date:
             statement = statement.where(Review.date >= start_date)
         if end_date:
             statement = statement.where(Review.date <= end_date)
 
+        # Фильтр по источнику
+        if source:
+            statement = statement.where(Review.source == source)
+            logger.debug(f"Filtering by source: {source}")
+
+        # Фильтр по кластеру
         if cluster_id:
             cluster = await self._cluster_repo.get_by_id(session, cluster_id)
             if not cluster:
@@ -1580,7 +1471,16 @@ class StatsService:
             statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
             logger.debug(f"Filtering by cluster ID: {cluster_id}")
 
-        statement = statement.order_by(Review.date.desc()).offset(page * size).limit(size)
+        # Сортировка по дате
+        if order_by == "asc":
+            statement = statement.order_by(Review.date.asc())
+        else:
+            statement = statement.order_by(Review.date.desc())
+        
+        logger.debug(f"Sorting by date: {order_by}")
+
+        # Пагинация
+        statement = statement.offset(page * size).limit(size)
 
         result = await session.execute(statement)
         reviews = result.scalars().all()
@@ -1597,9 +1497,9 @@ class StatsService:
                 review_product_map[review_id] = []
             review_product_map[review_id].append(prod_id)
 
+        # Формируем результат
         result = []
         for review in reviews:
-            # Создаем словарь вручную, а не через from_orm
             review_dict = {
                 "id": review.id,
                 "text": review.text,
@@ -1609,11 +1509,11 @@ class StatsService:
                 "sentiment_score": review.sentiment_score,
                 "source": review.source,
                 "created_at": review.created_at,
-                "product_ids": review_product_map.get(review.id, [])  # Добавляем product_ids
+                "product_ids": review_product_map.get(review.id, [])
             }
             result.append(review_dict)
         
-        logger.debug(f"Final result: {result}")
+        logger.debug(f"Final result: {len(result)} reviews")
         return result
 
     async def create_reviews_bulk(
@@ -1625,21 +1525,25 @@ class StatsService:
 
         logger.debug(f"Creating {len(reviews_data.data)} reviews for model processing")
 
-        all_product_ids = set()
-        for item in reviews_data.data:
-            all_product_ids.update(item.product_ids)
+        current_time = datetime.utcnow()
         
-        existing_products = await self._product_repo.get_all(session, size=len(all_product_ids))
-        existing_product_ids = {p.id for p in existing_products}
-        invalid_product_ids = all_product_ids - existing_product_ids
-        if invalid_product_ids:
-            raise HTTPException(status_code=400, detail=f"Invalid product IDs: {invalid_product_ids}")
-
         reviews_for_model = [
             ReviewsForModel(
-                text=item.text,
-                created_at=datetime.utcnow(),
-                processed=False
+                review_text=item.text,  # Используем review_text вместо text
+                # Обязательные поля для ReviewsForModel
+                bank_name="manual_input",
+                bank_slug="manual",
+                product_name="general",
+                # Опциональные поля
+                review_theme="",
+                rating="",
+                verification_status="",
+                review_date=current_time.strftime("%Y-%m-%d"),
+                review_timestamp=current_time,
+                source_url="",
+                parsed_at=current_time,
+                processed=False,
+                # Убираем поле text, так как его нет в модели
             ) for item in reviews_data.data
         ]
 
@@ -1658,6 +1562,7 @@ class StatsService:
             await session.rollback()
             logger.error(f"Error creating reviews for model: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error creating reviews for model processing: {str(e)}")
+
         
     
     async def get_unprocessed_reviews_for_model(

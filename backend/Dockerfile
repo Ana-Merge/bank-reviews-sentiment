@@ -1,7 +1,6 @@
-# Base stage
+
 FROM python:3.13-slim AS base
 
-# Add contrib and non-free repositories to ensure package availability
 RUN echo "deb http://deb.debian.org/debian trixie contrib non-free" >> /etc/apt/sources.list && \
     apt-get update && apt-get install -y \
     ca-certificates \
@@ -53,17 +52,14 @@ COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
 RUN sed -i 's/\r$//' ./scripts/entrypoint.sh && \
     chmod +x ./scripts/entrypoint.sh
 
-# Install Playwright and Chromium
 RUN pip install playwright==1.49.1 && \
     playwright install chromium
 
-# Dev stage (hot-reload)
 FROM base AS dev
 ENV PYTHONPATH=/app:/app/app
 EXPOSE 8000
 ENTRYPOINT ["./scripts/entrypoint.sh"]
 
-# Run stage
 FROM base AS run
 ENV PYTHONPATH=/app:/app/app
 EXPOSE 8000

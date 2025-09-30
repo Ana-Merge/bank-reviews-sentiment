@@ -1,21 +1,22 @@
+# user_models.py
 from enum import Enum
 from sqlalchemy import CheckConstraint, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db_manager import (
     Base,
-)  # Предполагаем, что Base = declarative_base() в db_manager.py
-# from app.schemas.auth_schema import (
-#     Role
-# )  # Импорт Enum из схем (см. ниже)
+)
 
 
 class UserRole(str, Enum):
+    """Роли пользователей в системе"""
     MANAGER = "manager"
     ADMIN = "admin"
 
 
 class User(Base):
+    """Модель пользователя системы"""
+    
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

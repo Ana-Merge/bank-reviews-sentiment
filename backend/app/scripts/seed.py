@@ -13,39 +13,34 @@ from app.models.models import (
     Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats, Notification, AuditLog, NotificationConfig, ReviewProduct,
     ProductType, ClientType, Sentiment, NotificationType
 )
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def seed_db():
     try:
-        # Чтение DB_URL
         db_url = os.getenv("DB_URL")
         if not db_url:
             try:
                 with open("/run/secrets/db_url", "r") as f:
                     db_url = f.read().strip()
             except FileNotFoundError:
-                raise ValueError("DB_URL not set or not found")
+                raise ValueError("DB_URL не задан или не найден")
         
         if not db_url:
-            raise ValueError("DB_URL is not set")
+            raise ValueError("DB_URL не задан")
         
-        # Используем DatabaseManager
         db_manager = DatabaseManager(db_url)
         await db_manager.initialize()
         async_session = db_manager.async_session
 
         async with async_session() as session:
             async with session.begin():
-                # Проверка на наличие данных
                 user_exists = await session.execute(select(User).where(User.username == "admin"))
                 if user_exists.scalar_one_or_none():
                     logger.info("Database already seeded, skipping...")
                     return
 
-                # Пользователи
                 admin_hash = pwd_context.hash("admin")
                 manager_hash = pwd_context.hash("manager")
                 manager_hash2 = pwd_context.hash("manager2")
@@ -58,19 +53,17 @@ async def seed_db():
                 ]
                 session.add_all(users)
                 await session.flush()
-                # Сохраняем IDs пользователей
                 user_ids = {u.username: u.id for u in users}
 
-                # Продукты
                 category = Product(name="Карты", type=ProductType.CATEGORY, level=0, client_type=ClientType.BOTH, description="Общие карты")
                 session.add(category)
                 await session.flush()
-                category_id = category.id  # ID 1
+                category_id = category.id 
 
                 subcategory = Product(name="Кредитные карты", parent_id=category_id, level=1, type=ProductType.SUBCATEGORY, client_type=ClientType.BOTH, description="Общие кредитные карты")
                 session.add(subcategory)
                 await session.flush()
-                subcategory_id = subcategory.id  # ID 2
+                subcategory_id = subcategory.id
 
                 products = [
                     Product(name="карта \"Мир\"", parent_id=subcategory_id, level=2, type=ProductType.PRODUCT, client_type=ClientType.BOTH),
@@ -124,7 +117,6 @@ async def seed_db():
                 await session.flush()
                 product_ids.update({p.name: p.id for p in products_savings})
 
-                # Кластеры
                 clusters = [
                     Cluster(name="Скорость и удобство оформления"),
                     Cluster(name="Комиссии и тарифы"),
@@ -141,9 +133,8 @@ async def seed_db():
                 await session.flush()
                 logger.info("Clusters seeded")
 
-                # Отзывы
                 reviews_list = []
-                product_mappings = {}  # temp_object_id -> list of product_ids
+                product_mappings = {}
                 product_id_list = list(product_ids.values())
                 sources = ['Banki.ru', 'App Store', 'Google Play']
                 for _ in range(2000):
@@ -161,7 +152,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Reviews seeded")
 
-                # Добавляем связи ReviewProduct
                 for review in reviews_list:
                     for pid in product_mappings[id(review)]:
                         rp = ReviewProduct(review_id=review.id, product_id=pid)
@@ -169,7 +159,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("ReviewProduct associations seeded")
 
-                # ReviewClusters
                 review_clusters = []
                 for review in reviews_list:
                     cluster = random.choice(clusters)
@@ -185,7 +174,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Review clusters seeded")
 
-                # MonthlyStats
                 monthly_stats = []
                 for product_id in product_id_list:
                     for month in range(1, 10):
@@ -220,8 +208,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Monthly stats seeded")
 
-                # ClusterStats 
-                logger.info(len(clusters)) # !!!ВАЖНО, БЕЗ ЭТОГО НЕ РАБОТАЕТ!!!
                 cluster_stats = []
                 for cluster in clusters:
                     for product_id in product_id_list:
@@ -233,7 +219,6 @@ async def seed_db():
                             weighted_review_count = sum(rc.topic_weight for rc in relevant_rc) if relevant_rc else 0
                             if weighted_review_count == 0:
                                 continue
-                            # Find sentiments
                             sentiments = [next((r.sentiment for r in reviews_list if r.id == rc.review_id), None) for rc in relevant_rc]
                             positive_count = sentiments.count(Sentiment.POSITIVE)
                             neutral_count = sentiments.count(Sentiment.NEUTRAL)
@@ -259,7 +244,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Cluster stats seeded")
 
-                # Уведомления
                 notifications = [
                     Notification(user_id=user_ids["manager"], message="Резкий скачок отзывов по карте Мир (+25%)!", type=NotificationType.REVIEW_SPIKE, is_read=False),
                     Notification(user_id=user_ids["manager"], message="Ухудшение тональности по комиссиям (-18%)", type=NotificationType.SENTIMENT_DECLINE, is_read=False),
@@ -270,7 +254,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Notifications seeded")
 
-                # NotificationConfig
                 configs = [
                     NotificationConfig(
                         user_id=user_ids["manager"],
@@ -301,7 +284,6 @@ async def seed_db():
                 await session.flush()
                 logger.info("Notification configs seeded")
 
-                # Логи аудита
                 audit_logs = [
                     AuditLog(user_id=user_ids["admin"], action="User login", timestamp=datetime.now()),
                     AuditLog(user_id=user_ids["manager"], action="Product stats viewed", timestamp=datetime.now() - timedelta(hours=1)),
