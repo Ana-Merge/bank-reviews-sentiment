@@ -134,13 +134,51 @@
     white-space: nowrap;
     font-weight: vars.$font-weight-medium;
 
+    &:hover:not(:disabled) {
+        background-color: vars.$color-primary-hover;
+    }
+
     &:disabled {
         background-color: #6c757d;
         cursor: not-allowed;
     }
 }
 
-.pagesContainer {
+// Переключение между видами
+.viewTabs {
+    display: flex;
+    background: vars.$color-white;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.viewTab {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    color: vars.$color-text;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background-color: vars.$color-text-light;
+    }
+
+    &.active {
+        background-color: vars.$color-primary;
+        color: vars.$color-white;
+        box-shadow: 0 2px 8px rgba(vars.$color-primary, 0.3);
+    }
+}
+
+.pagesContainer,
+.usersContainer {
     @include card;
     padding-bottom: 42px;
 }
@@ -161,7 +199,8 @@
     }
 }
 
-.pagesCount {
+.pagesCount,
+.usersCount {
     background-color: vars.$color-primary;
     color: white;
     padding: 6px 12px;
@@ -170,13 +209,15 @@
     font-weight: vars.$font-weight-medium;
 }
 
-.pagesGrid {
+.pagesGrid,
+.usersGrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     gap: 24px;
 }
 
-.pageCard {
+.pageCard,
+.userCard {
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 12px;
@@ -192,7 +233,8 @@
     }
 }
 
-.pageContent {
+.pageContent,
+.userContent {
     padding: 28px;
     cursor: pointer;
     transition: background-color 0.2s ease;
@@ -206,7 +248,8 @@
     }
 }
 
-.pageName {
+.pageName,
+.userName {
     margin: 0 0 16px 0;
     color: vars.$color-text-dark;
     font-size: vars.$font-size-lg;
@@ -214,13 +257,15 @@
     line-height: 1.4;
 }
 
-.pageInfo {
+.pageInfo,
+.userInfo {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.chartsCount {
+.chartsCount,
+.userRole {
     font-size: vars.$font-size-md;
     color: vars.$color-text;
     font-weight: vars.$font-weight-medium;
@@ -232,14 +277,16 @@
     }
 }
 
-.pageActions {
+.pageActions,
+.userActions {
     display: flex;
     border-top: 1px solid #f0f0f0;
     height: 60px;
 }
 
 .openButton,
-.deleteButton {
+.deleteButton,
+.viewButton {
     flex: 1;
     padding: 16px;
     border: none;
@@ -250,7 +297,8 @@
     font-weight: vars.$font-weight-medium;
 }
 
-.openButton {
+.openButton,
+.viewButton {
     color: vars.$color-primary;
     border-right: 1px solid #f0f0f0;
 

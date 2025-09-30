@@ -1,0 +1,457 @@
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { useAppSelector, useAppDispatch } from "../../hooks/redux";
+import { authService } from "../../services/auth";
+import { apiService } from "../../services/api";
+import { fetchProductTree } from "../../store/slices/productSlice";
+import {
+    ProductAnalyticsTable,
+    BarChartReviews,
+    ChangeChart,
+    TonalityChart,
+    LoadingSpinner
+} from "../../components";
+
+import styles from "./UserDashboardPage.module.scss";
+
+// Вспомогательная функция для получения дочерних продуктов
+const getAllChildProducts = (productTree, productId) => {
+    const findProductAndDirectChildren = (nodes, targetId) => {
+        for (let node of nodes) {
+            if (node.id === targetId) {
+                if (node.children && node.children.length > 0) {
+                    return node.children;
+                }
+                return [node];
+            }
+            if (node.children) {
+                const found = findProductAndDirectChildren(node.children, targetId);
+                if (found.length > 0) return found;
+            }
+        }
+        return [];
+    };
+
+    return findProductAndDirectChildren(productTree, productId);
+};
+
+// Компонент для отображения графика по конфигурации (только чтение)
+const ChartRenderer = ({ chartConfig, productTree }) => {
+    const [chartData, setChartData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [childProducts, setChildProducts] = useState([]);
+
+    // Нахождение продукта по product_id из конфигурации
+    useEffect(() => {
+        if (!chartConfig || !productTree) return;
+
+        const findProduct = (nodes) => {
+            for (let node of nodes) {
+                if (node.id === chartConfig.attributes.product_id) {
+                    return node;
+                }
+                if (node.children) {
+                    const found = findProduct(node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        const product = findProduct(productTree);
+        setSelectedProduct(product);
+
+        if (product) {
+            const children = getAllChildProducts(productTree, product.id);
+            setChildProducts(children);
+        }
+    }, [chartConfig, productTree]);
+
+    useEffect(() => {
+        if (!chartConfig || !selectedProduct) return;
+
+        const fetchChartData = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const { type, attributes } = chartConfig;
+                const {
+                    date_start_1, date_end_1, date_start_2, date_end_2,
+                    product_id, source, aggregation_type
+                } = attributes;
+
+                let data;
+
+                switch (type) {
+                    case 'product_stats':
+                        if (childProducts.length > 0) {
+                            // Загрузка данных для каждого дочернего продукта
+                            const productStatsPromises = childProducts.map(childProduct =>
+                                apiService.getProductStats(
+                                    date_start_1, date_end_1, date_start_2, date_end_2,
+                                    childProduct.id, null, source || null
+                                )
+                            );
+
+                            const results = await Promise.all(productStatsPromises);
+                            data = results.flat();
+                        } else {
+                            data = await apiService.getProductStats(
+                                date_start_1, date_end_1, date_start_2, date_end_2,
+                                product_id, null, source || null
+                            );
+                        }
+                        break;
+                    case 'monthly-review-count':
+                        data = await apiService.getReviewTonality(
+                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                            aggregation_type, source || null
+                        );
+                        break;
+                    case 'regional-bar-chart':
+                        data = await apiService.getBarChartChanges(
+                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                            aggregation_type, source || null
+                        );
+                        break;
+                    case 'change-chart':
+                        data = await apiService.getChangeChart(
+                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                            source || null
+                        );
+                        break;
+                    default:
+                        throw new Error(`Unknown chart type: ${type}`);
+                }
+
+                setChartData(data);
+            } catch (err) {
+                setError(`Ошибка загрузки данных: ${err.message}`);
+                console.error("Failed to load chart data:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchChartData();
+    }, [chartConfig, selectedProduct, childProducts]);
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
+
+    const getSourceName = (source) => {
+        const sourceNames = {
+            null: 'Все источники',
+            'Banki.ru': 'Banki.ru',
+            'App Store': 'App Store',
+            'Google Play': 'Google Play'
+        };
+        return sourceNames[source] || 'Все источники';
+    };
+
+    if (isLoading) {
+        return (
+            <div className={styles.chartSection}>
+                <div className={styles.loading}><LoadingSpinner /></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className={styles.chartSection}>
+                <div className={styles.error}>{error}</div>
+            </div>
+        );
+    }
+
+    if (!chartData || !selectedProduct) {
+        return (
+            <div className={styles.chartSection}>
+                <div className={styles.noData}>Нет данных для отображения</div>
+            </div>
+        );
+    }
+
+    const { type, attributes } = chartConfig;
+    const {
+        source,
+        date_start_1,
+        date_end_1,
+        date_start_2,
+        date_end_2
+    } = attributes;
+
+    const commonProps = {
+        productName: selectedProduct.name
+    };
+
+    const renderChartContent = () => {
+        switch (type) {
+            case 'product_stats':
+                return <ProductAnalyticsTable productStats={chartData} />;
+            case 'monthly-review-count':
+                return (
+                    <TonalityChart
+                        chartData={chartData}
+                        aggregationType={attributes.aggregation_type}
+                        {...commonProps}
+                    />
+                );
+            case 'regional-bar-chart':
+                return (
+                    <BarChartReviews
+                        chartData={chartData}
+                        aggregationType={attributes.aggregation_type}
+                        {...commonProps}
+                    />
+                );
+            case 'change-chart':
+                return (
+                    <ChangeChart
+                        data={chartData}
+                        {...commonProps}
+                    />
+                );
+            default:
+                return <div className={styles.error}>Неизвестный тип графика: {type}</div>;
+        }
+    };
+
+    return (
+        <div className={styles.chartSection}>
+            <div className={styles.chartHeader}>
+                <div className={styles.chartTitleSection}>
+                    <div className={styles.chartFiltersInfo}>
+                        {/* Имя продукта только для ProductAnalyticsTable */}
+                        {type === 'product_stats' && (
+                            <div className={styles.filterItem}>
+                                <span className={styles.filterLabel}>Продукт:</span>
+                                <span className={styles.filterValue}>{selectedProduct.name}</span>
+                            </div>
+                        )}
+                        <div className={styles.filterItem}>
+                            <span className={styles.filterLabel}>Источник:</span>
+                            <span className={styles.filterValue}>{getSourceName(source)}</span>
+                        </div>
+                        <div className={styles.filterItem}>
+                            <span className={styles.filterLabel}>Период:</span>
+                            <span className={styles.filterValue}>
+                                {formatDate(date_start_1)} - {formatDate(date_end_1)}
+                            </span>
+                        </div>
+                        {date_start_2 && date_end_2 && (
+                            <div className={styles.filterItem}>
+                                <span className={styles.filterLabel}>Период для сравнения:</span>
+                                <span className={styles.filterValue}>
+                                    {formatDate(date_start_2)} - {formatDate(date_end_2)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <div className={styles.chartContent}>
+                {renderChartContent()}
+            </div>
+        </div>
+    );
+};
+
+const UserDashboardPage = () => {
+    const { userId, pageId } = useParams();
+    const dispatch = useAppDispatch();
+    const { isAuthenticated, token } = useAppSelector(state => state.auth);
+    const { productTree } = useAppSelector(state => state.product);
+
+    const [user, setUser] = useState(null);
+    const [page, setPage] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (isAuthenticated && token && userId && pageId) {
+            loadPage();
+        }
+        if (!productTree) {
+            dispatch(fetchProductTree());
+        }
+    }, [isAuthenticated, token, userId, pageId, dispatch, productTree]);
+
+    const loadPage = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const usersData = await authService.getAllUsers(token);
+            const foundUser = usersData.users.find(u => u.id.toString() === userId);
+
+            if (foundUser) {
+                setUser(foundUser);
+                const foundPage = foundUser.dashboard_config?.pages?.find(p => p.id === pageId);
+
+                if (foundPage) {
+                    setPage(foundPage);
+                } else {
+                    setError("Страница не найдена");
+                }
+            } else {
+                setError("Пользователь не найден");
+            }
+        } catch (err) {
+            setError(`Ошибка загрузки страницы: ${err.message}`);
+            console.error("Failed to load page:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSavePage = async () => {
+        if (!confirm(`Сохранить страницу "${page.name}" к себе?`)) {
+            return;
+        }
+
+        setIsSaving(true);
+
+        try {
+            // Генерируем новые ID для страницы и всех графиков
+            const newPageId = Date.now().toString();
+            const newPage = {
+                ...page,
+                id: newPageId,
+                name: `${page.name} (скопировано у ${user.username})`,
+                charts: page.charts?.map(chart => ({
+                    ...chart,
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+                })) || []
+            };
+
+            // Загружаем текущую конфигурацию пользователя
+            const currentConfig = await authService.getUserDashboardsConfig(token);
+            const updatedPages = [...(currentConfig.pages || []), newPage];
+
+            // Сохраняем обновленную конфигурацию
+            await authService.saveUserDashboardsConfig(token, { pages: updatedPages });
+
+            alert(`Страница "${page.name}" успешно сохранена!`);
+        } catch (err) {
+            setError(`Ошибка сохранения страницы: ${err.message}`);
+            console.error("Failed to save page:", err);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleBackToUser = () => {
+        window.location.href = `/user-dashboards/${userId}`;
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className={styles.pageContainer}>
+                <div className={styles.error}>
+                    Для просмотра этой страницы необходимо авторизоваться.
+                </div>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className={styles.pageContainer}>
+                <div className={styles.loading}>Загрузка страницы...</div>
+            </div>
+        );
+    }
+
+    if (error || !page || !user) {
+        return (
+            <div className={styles.pageContainer}>
+                <div className={styles.error}>
+                    {error || "Страница не найдена"}
+                    <div className={styles.actions}>
+                        <button onClick={handleBackToUser} className={styles.backButton}>
+                            ← Назад к страницам пользователя
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.pageContainer}>
+            {/* Заголовок страницы */}
+            <div className={styles.pageHeader}>
+                <div className={styles.headerContent}>
+                    <h1 className={styles.pageTitle}>{page.name}</h1>
+                    <div className={styles.pageMeta}>
+                        <span className={styles.userInfo}>
+                            Владелец: {user.username}
+                        </span>
+                        <span className={styles.chartsCount}>
+                            Графиков: {page.charts?.length || 0}
+                        </span>
+                    </div>
+                </div>
+                <div className={styles.pageActions}>
+                    <button
+                        className={styles.saveButton}
+                        onClick={handleSavePage}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? "Сохранение..." : "Сохранить к себе"}
+                    </button>
+                    <button
+                        className={styles.backButton}
+                        onClick={handleBackToUser}
+                    >
+                        ← Назад
+                    </button>
+                </div>
+            </div>
+
+            {/* Контент страницы */}
+            <div className={styles.pageContent}>
+                {page.charts && page.charts.length > 0 ? (
+                    <div className={styles.chartsSection}>
+                        {page.charts.map((chart) => (
+                            <ChartRenderer
+                                key={chart.id}
+                                chartConfig={chart}
+                                productTree={productTree}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className={styles.emptyState}>
+                        <div className={styles.emptyContent}>
+                            <h3>Страница пустая</h3>
+                            <p>На этой странице нет настроенных графиков.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Информация о режиме просмотра */}
+            <div className={styles.viewModeInfo}>
+                <div className={styles.infoBanner}>
+                    <strong>Режим просмотра</strong> - вы можете просматривать графики, но не можете их редактировать.
+                    Нажмите "Сохранить к себе", чтобы добавить эту страницу в свои дашборды.
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default UserDashboardPage;

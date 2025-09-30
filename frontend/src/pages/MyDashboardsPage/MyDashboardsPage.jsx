@@ -7,15 +7,17 @@ const MyDashboardsPage = () => {
   const { isAuthenticated, user, token } = useAppSelector(state => state.auth);
 
   const [pages, setPages] = useState([]);
+  const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newPageName, setNewPageName] = useState("");
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
+  const [activeView, setActiveView] = useState("my");
   useEffect(() => {
     if (isAuthenticated && token) {
       loadPages();
+      loadUsers();
     }
   }, [isAuthenticated, token]);
 
@@ -31,6 +33,15 @@ const MyDashboardsPage = () => {
       console.error("Failed to load pages:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const usersData = await authService.getAllUsers(token);
+      setUsers(usersData.users || []);
+    } catch (err) {
+      console.error("Failed to load users:", err);
     }
   };
 
@@ -83,6 +94,10 @@ const MyDashboardsPage = () => {
 
   const handlePageClick = (pageId) => {
     window.open(`/dashboard/${pageId}`, '_blank');
+  };
+
+  const handleUserClick = (userId) => {
+    window.open(`/user-dashboards/${userId}`, '_blank');
   };
 
   if (!isAuthenticated) {
@@ -160,52 +175,109 @@ const MyDashboardsPage = () => {
         </div>
       )}
 
-      <div className={styles.pagesContainer}>
-        <div className={styles.sectionHeader}>
-          <h3>Мои страницы дашбордов</h3>
-          <span className={styles.pagesCount}>Всего: {pages.length}</span>
-        </div>
+      {/* Переключение между видами */}
+      <div className={styles.viewTabs}>
+        <button
+          className={`${styles.viewTab} ${activeView === "my" ? styles.active : ""}`}
+          onClick={() => setActiveView("my")}
+        >
+          Мои страницы
+        </button>
+        <button
+          className={`${styles.viewTab} ${activeView === "users" ? styles.active : ""}`}
+          onClick={() => setActiveView("users")}
+        >
+          Страницы других пользователей
+        </button>
+      </div>
 
-        {pages.length === 0 ? (
-          <div className={styles.noData}>
-            У вас пока нет созданных страниц. Создайте первую страницу выше.
+      {activeView === "my" ? (
+        <div className={styles.pagesContainer}>
+          <div className={styles.sectionHeader}>
+            <h3>Мои страницы дашбордов</h3>
+            <span className={styles.pagesCount}>Всего: {pages.length}</span>
           </div>
-        ) : (
-          <div className={styles.pagesGrid}>
-            {pages.map((page) => (
-              <div key={page.id} className={styles.pageCard}>
-                <div
-                  className={styles.pageContent}
-                  onClick={() => handlePageClick(page.id)}
-                >
-                  <h4 className={styles.pageName}>{page.name}</h4>
-                  <div className={styles.pageInfo}>
-                    <span className={styles.chartsCount}>
-                      Графиков: {page.charts?.length || 0}
-                    </span>
+
+          {pages.length === 0 ? (
+            <div className={styles.noData}>
+              У вас пока нет созданных страниц. Создайте первую страницу выше.
+            </div>
+          ) : (
+            <div className={styles.pagesGrid}>
+              {pages.map((page) => (
+                <div key={page.id} className={styles.pageCard}>
+                  <div
+                    className={styles.pageContent}
+                    onClick={() => handlePageClick(page.id)}
+                  >
+                    <h4 className={styles.pageName}>{page.name}</h4>
+                    <div className={styles.pageInfo}>
+                      <span className={styles.chartsCount}>
+                        Графиков: {page.charts?.length || 0}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.pageActions}>
+                    <button
+                      onClick={() => handlePageClick(page.id)}
+                      className={styles.openButton}
+                      title="Открыть в новой вкладке"
+                    >
+                      Открыть
+                    </button>
+                    <button
+                      onClick={() => handleDeletePage(page.id, page.name)}
+                      className={styles.deleteButton}
+                      title="Удалить страницу"
+                    >
+                      Удалить
+                    </button>
                   </div>
                 </div>
-                <div className={styles.pageActions}>
-                  <button
-                    onClick={() => handlePageClick(page.id)}
-                    className={styles.openButton}
-                    title="Открыть в новой вкладке"
-                  >
-                    Открыть
-                  </button>
-                  <button
-                    onClick={() => handleDeletePage(page.id, page.name)}
-                    className={styles.deleteButton}
-                    title="Удалить страницу"
-                  >
-                    Удалить
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={styles.usersContainer}>
+          <div className={styles.sectionHeader}>
+            <h3>Пользователи системы</h3>
+            <span className={styles.usersCount}>Всего: {users.length}</span>
           </div>
-        )}
-      </div>
+
+          {users.length === 0 ? (
+            <div className={styles.noData}>
+              Нет других пользователей в системе.
+            </div>
+          ) : (
+            <div className={styles.usersGrid}>
+              {users
+                .filter(u => u.username !== user.username)
+                .map((userItem) => (
+                  <div key={userItem.id} className={styles.userCard}>
+                    <div className={styles.userContent}>
+                      <h4 className={styles.userName}>{userItem.username}</h4>
+                      <div className={styles.userInfo}>
+                        <span className={styles.pagesCount}>
+                          Страниц: {userItem.dashboard_config?.pages?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className={styles.userActions}>
+                      <button
+                        onClick={() => handleUserClick(userItem.id)}
+                        className={styles.viewButton}
+                        title="Посмотреть страницы пользователя"
+                      >
+                        Посмотреть страницы
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -7,6 +7,8 @@ import { MyDashboardsPage } from "../pages";
 
 const ProductPage = lazy(() => import("../pages/ProductPage/ProductPage"));
 const DashboardPage = lazy(() => import("../pages/DashboardPage/DashboardPage"));
+const UserDashboardsPage = lazy(() => import("../pages/UserDashboardsPage/UserDashboardsPage"));
+const UserDashboardPage = lazy(() => import("../pages/UserDashboardPage/UserDashboardPage"));
 
 const AppRouter = createBrowserRouter([
   {
@@ -79,6 +81,23 @@ const AppRouter = createBrowserRouter([
         element: (
           <Suspense fallback={<LoadingSpinner />}>
             <DashboardPage />
+          </Suspense>
+        ),
+      },
+      // Новые маршруты для просмотра пользовательских дашбордов
+      {
+        path: "user-dashboards/:userId",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <UserDashboardsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "user-dashboard/:userId/:pageId",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <UserDashboardPage />
           </Suspense>
         ),
       },

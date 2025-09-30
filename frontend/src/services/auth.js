@@ -99,4 +99,13 @@ export const authService = {
             body: JSON.stringify(pageData),
         });
     },
+
+    // Новый метод для получения всех пользователей
+    async getAllUsers(token) {
+        return request("/v1/user_dashboards/users", {
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+        });
+    },
 };
