@@ -14,6 +14,7 @@ const DateFilter = ({
     onDateErrorsChange
 }) => {
     const [errors, setErrors] = useState({});
+    const [warnings, setWarnings] = useState({});
     const [prevAggregationType, setPrevAggregationType] = useState(aggregationType);
     const MIN_DATE = "2024-01-01";
     const MAX_DATE = "2025-05-31";
@@ -107,6 +108,30 @@ const DateFilter = ({
         return end2Obj < start1Obj;
     };
 
+    const getMinDateForEnd = (startDate, type) => {
+        if (!startDate) return MIN_DATE;
+
+        const startDateObj = type === 'month' ? new Date(startDate + '-01') : new Date(startDate);
+
+        if (type === 'month') {
+            return startDate;
+        } else {
+            return startDate;
+        }
+    };
+
+    const getMaxDateForStart = (endDate, type) => {
+        if (!endDate) return MAX_DATE;
+
+        const endDateObj = type === 'month' ? new Date(endDate + '-01') : new Date(endDate);
+
+        if (type === 'month') {
+            return endDate;
+        } else {
+            return endDate;
+        }
+    };
+
     const getMaxDateForPeriod2 = (startDate, type) => {
         if (!startDate) return MAX_DATE;
 
@@ -120,6 +145,46 @@ const DateFilter = ({
             return `${year}-${month}`;
         } else {
             return dayBeforeStart.toISOString().split('T')[0];
+        }
+    };
+
+    const getMinDateForPeriod2End = (startDate2, type) => {
+        if (!startDate2) return MIN_DATE;
+
+        if (type === 'month') {
+            return startDate2;
+        } else {
+            return startDate2;
+        }
+    };
+
+    const getMaxDateForPeriod2Start = (endDate2, type) => {
+        if (!endDate2) return getMaxDateForPeriod2(startDate, aggregationType);
+
+        if (type === 'month') {
+            return endDate2;
+        } else {
+            return endDate2;
+        }
+    };
+
+    const calculatePeriodLength = (start, end, type) => {
+        if (!start || !end) return 0;
+
+        const startDateObj = type === 'month' ? new Date(start + '-01') : new Date(start);
+        const endDateObj = type === 'month' ? new Date(end + '-01') : new Date(end);
+
+        if (type === 'month') {
+            const startYear = startDateObj.getFullYear();
+            const startMonth = startDateObj.getMonth();
+            const endYear = endDateObj.getFullYear();
+            const endMonth = endDateObj.getMonth();
+
+            return (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+        } else {
+            const timeDiff = endDateObj.getTime() - startDateObj.getTime();
+            const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+            return dayDiff;
         }
     };
 
@@ -159,6 +224,37 @@ const DateFilter = ({
         onDateErrorsChange(newErrors);
     };
 
+    const validatePeriodLengths = () => {
+        const newWarnings = { ...warnings };
+
+        const period1Start = formatDateForInput(startDate, aggregationType);
+        const period1End = formatDateForInput(endDate, aggregationType);
+        const period2Start = formatDateForInput(startDate2, aggregationType);
+        const period2End = formatDateForInput(endDate2, aggregationType);
+
+        if (period1Start && period1End && period2Start && period2End &&
+            isValidDateForAggregation(period1Start, aggregationType) &&
+            isValidDateForAggregation(period1End, aggregationType) &&
+            isValidDateForAggregation(period2Start, aggregationType) &&
+            isValidDateForAggregation(period2End, aggregationType) &&
+            isEndDateAfterStartDate(period1Start, period1End, aggregationType) &&
+            isEndDateAfterStartDate(period2Start, period2End, aggregationType)) {
+
+            const period1Length = calculatePeriodLength(period1Start, period1End, aggregationType);
+            const period2Length = calculatePeriodLength(period2Start, period2End, aggregationType);
+
+            if (period1Length !== period2Length) {
+                newWarnings.periodLengthMismatch = `Периоды имеют разную длительность.`;
+            } else {
+                delete newWarnings.periodLengthMismatch;
+            }
+        } else {
+            delete newWarnings.periodLengthMismatch;
+        }
+
+        setWarnings(newWarnings);
+    };
+
     const getInputType = () => {
         return aggregationType === 'month' ? 'month' : 'date';
     };
@@ -193,6 +289,7 @@ const DateFilter = ({
             'period2',
             true
         );
+        validatePeriodLengths();
     }, [startDate, endDate, startDate2, endDate2, aggregationType]);
 
     const handleStartDateChange = (inputValue) => {
@@ -218,6 +315,12 @@ const DateFilter = ({
     const { min, max } = getMinMaxForAggregation(aggregationType);
     const maxDateForPeriod2 = getMaxDateForPeriod2(formatDateForInput(startDate, aggregationType), aggregationType);
 
+    const minDateForEnd = getMinDateForEnd(formatDateForInput(startDate, aggregationType), aggregationType);
+    const maxDateForStart = getMaxDateForStart(formatDateForInput(endDate, aggregationType), aggregationType);
+
+    const minDateForPeriod2End = getMinDateForPeriod2End(formatDateForInput(startDate2, aggregationType), aggregationType);
+    const maxDateForPeriod2Start = getMaxDateForPeriod2Start(formatDateForInput(endDate2, aggregationType), aggregationType);
+
     return (
         <div className={styles.dateFilter}>
             <div className={styles.filterControls}>
@@ -231,7 +334,7 @@ const DateFilter = ({
                                 type={getInputType()}
                                 value={formatDateForInput(startDate, aggregationType)}
                                 min={min}
-                                max={max}
+                                max={maxDateForStart}
                                 onChange={(e) => handleStartDateChange(e.target.value)}
                                 className={errors.period1Start ? styles.errorInput : ''}
                             />
@@ -243,7 +346,7 @@ const DateFilter = ({
                                 id="end-date"
                                 type={getInputType()}
                                 value={formatDateForInput(endDate, aggregationType)}
-                                min={min}
+                                min={minDateForEnd}
                                 max={max}
                                 onChange={(e) => handleEndDateChange(e.target.value)}
                                 className={errors.period1End ? styles.errorInput : ''}
@@ -264,7 +367,7 @@ const DateFilter = ({
                                 type={getInputType()}
                                 value={formatDateForInput(startDate2, aggregationType)}
                                 min={min}
-                                max={maxDateForPeriod2}
+                                max={maxDateForPeriod2Start}
                                 onChange={(e) => handleStartDate2Change(e.target.value)}
                                 className={errors.period2Start ? styles.errorInput : ''}
                             />
@@ -276,7 +379,7 @@ const DateFilter = ({
                                 id="end-date2"
                                 type={getInputType()}
                                 value={formatDateForInput(endDate2, aggregationType)}
-                                min={min}
+                                min={minDateForPeriod2End}
                                 max={maxDateForPeriod2}
                                 onChange={(e) => handleEndDate2Change(e.target.value)}
                                 className={errors.period2End ? styles.errorInput : ''}
@@ -290,7 +393,13 @@ const DateFilter = ({
 
             {errors.period2BeforePeriod1 && (
                 <div className={styles.periodOrderError}>
-                    ⚠️ {errors.period2BeforePeriod1}
+                    {errors.period2BeforePeriod1}
+                </div>
+            )}
+
+            {warnings.periodLengthMismatch && (
+                <div className={styles.periodLengthHint}>
+                    {warnings.periodLengthMismatch}
                 </div>
             )}
 

@@ -29,6 +29,17 @@
         position: relative;
         margin-bottom: 10px;
     }
+
+    .periodLengthHint {
+        background-color: #e3f2fd;
+        border: 1px solid #90caf9;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin: 8px 0;
+        font-size: 14px;
+        color: #1565c0;
+        line-height: 1.4;
+    }
 }
 
 .filterControls {
