@@ -11,7 +11,7 @@ from app.repositories.repositories import (
     ClusterRepository, ReviewClusterRepository, ReviewCluster, Review, ReviewsForModelRepository
 )
 from app.models.user_models import User
-from app.schemas.schemas import ReviewResponse, ClusterResponse, ReviewBulkCreate
+from app.schemas.schemas import ReviewResponse, ClusterResponse, ReviewBulkCreate, ReviewsResponse, ReviewResponseWithArray
 from app.models.models import ProductType, Sentiment, ReviewProduct, ReviewsForModel
 
 class StatsService:
@@ -159,56 +159,98 @@ class StatsService:
             date_format = "%Y-%m-%d"
 
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
-        period1_query = select(
+        
+        # Запрос для подсчета ВСЕХ уникальных отзывов (как в bar_chart_changes)
+        total_period1_query = select(
             agg_date,
-            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
+            func.count(func.distinct(Review.id)).label("total_count")
+        ).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date_parsed,
+            Review.date <= end_date_parsed
+        )
+        
+        if source:
+            total_period1_query = total_period1_query.where(Review.source == source)
+        
+        total_period1_query = total_period1_query.group_by(agg_date).order_by(agg_date)
+        total_period1_result = await session.execute(total_period1_query)
+        total_period1_data = total_period1_result.all()
+        
+        # Создаем словарь для общих подсчетов
+        total_period1_dict = {row.agg_date.strftime(date_format): row.total_count for row in total_period1_data}
+
+        # Запрос для распределения по тональностям (только отзывы с тональностью)
+        tonality_period1_query = select(
+            agg_date,
+            ReviewProduct.sentiment,
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
-            and_(
-                ReviewProduct.product_id.in_(product_ids),
-                Review.date >= start_date_parsed,
-                Review.date <= end_date_parsed,
-                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
-            )
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date_parsed,
+            Review.date <= end_date_parsed,
+            ReviewProduct.sentiment.isnot(None)
         )
+        
         if source:
-            period1_query = period1_query.where(Review.source == source)
-        period1_query = period1_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
-        period1_result = await session.execute(period1_query)
-        period1_data = period1_result.all()
+            tonality_period1_query = tonality_period1_query.where(Review.source == source)
+        
+        tonality_period1_query = tonality_period1_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
+        tonality_period1_result = await session.execute(tonality_period1_query)
+        tonality_period1_data = tonality_period1_result.all()
 
+        # Собираем данные для периода 1
         period1_dict = {}
-        for row in period1_data:
+        for row in tonality_period1_data:
             agg_date_str = row.agg_date.strftime(date_format)
             if agg_date_str not in period1_dict:
                 period1_dict[agg_date_str] = {"positive": 0, "neutral": 0, "negative": 0}
             period1_dict[agg_date_str][row.sentiment] = row.count
-        
-        period2_query = select(
+
+        # Аналогично для периода 2
+        total_period2_query = select(
             agg_date,
-            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
+            func.count(func.distinct(Review.id)).label("total_count")
+        ).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date2_parsed,
+            Review.date <= end_date2_parsed
+        )
+        
+        if source:
+            total_period2_query = total_period2_query.where(Review.source == source)
+        
+        total_period2_query = total_period2_query.group_by(agg_date).order_by(agg_date)
+        total_period2_result = await session.execute(total_period2_query)
+        total_period2_data = total_period2_result.all()
+        
+        total_period2_dict = {row.agg_date.strftime(date_format): row.total_count for row in total_period2_data}
+
+        tonality_period2_query = select(
+            agg_date,
+            ReviewProduct.sentiment,
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
-            and_(
-                ReviewProduct.product_id.in_(product_ids),
-                Review.date >= start_date2_parsed,
-                Review.date <= end_date2_parsed,
-                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
-            )
+            ReviewProduct.product_id.in_(product_ids),
+            Review.date >= start_date2_parsed,
+            Review.date <= end_date2_parsed,
+            ReviewProduct.sentiment.isnot(None)
         )
+        
         if source:
-            period2_query = period2_query.where(Review.source == source)
-        period2_query = period2_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
-        period2_result = await session.execute(period2_query)
-        period2_data = period2_result.all()
+            tonality_period2_query = tonality_period2_query.where(Review.source == source)
+        
+        tonality_period2_query = tonality_period2_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
+        tonality_period2_result = await session.execute(tonality_period2_query)
+        tonality_period2_data = tonality_period2_result.all()
 
         period2_dict = {}
-        for row in period2_data:
+        for row in tonality_period2_data:
             agg_date_str = row.agg_date.strftime(date_format)
             if agg_date_str not in period2_dict:
                 period2_dict[agg_date_str] = {"positive": 0, "neutral": 0, "negative": 0}
             period2_dict[agg_date_str][row.sentiment] = row.count
-        
+
         def generate_date_range(start: datetime.date, end: datetime.date, agg_type: str) -> List[str]:
             result = []
             current = start
@@ -237,18 +279,21 @@ class StatsService:
         period1 = [
             {
                 "aggregation": date,
-                "tonality": period1_dict.get(date, {"positive": 0, "neutral": 0, "negative": 0})
+                "tonality": period1_dict.get(date, {"positive": 0, "neutral": 0, "negative": 0}),
+                "total_count": total_period1_dict.get(date, 0)  # Добавляем общее количество для отладки
             }
             for date in period1_dates
         ]
         period2 = [
             {
                 "aggregation": date,
-                "tonality": period2_dict.get(date, {"positive": 0, "neutral": 0, "negative": 0})
+                "tonality": period2_dict.get(date, {"positive": 0, "neutral": 0, "negative": 0}),
+                "total_count": total_period2_dict.get(date, 0)  # Добавляем общее количество для отладки
             }
             for date in period2_dates
         ]
 
+        # Остальная логика изменений остается прежней...
         changes = []
         min_length = min(len(period1), len(period2))
         
@@ -1443,30 +1488,37 @@ class StatsService:
 
         if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
             descendants = await self._product_repo.get_all_descendants(session, product_id)
-            product_ids = [p.id for p in descendants] + [product_id]
+            product_ids_for_filter = [p.id for p in descendants] + [product_id]
         else:
-            product_ids = [product_id]
+            product_ids_for_filter = [product_id]
 
-        # Подсчет общего количества с фильтрацией
-        count_statement = select(func.count(func.distinct(Review.id))).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
+        # Подсчет общего количества с фильтрацией (уникальные отзывы)
+        # Ищем отзывы, которые связаны с запрошенным продуктом/категорией
+        count_subquery = select(Review.id).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids_for_filter)
+        ).distinct()
 
         if start_date:
-            count_statement = count_statement.where(Review.date >= start_date)
+            count_subquery = count_subquery.where(Review.date >= start_date)
         if end_date:
-            count_statement = count_statement.where(Review.date <= end_date)
+            count_subquery = count_subquery.where(Review.date <= end_date)
         if source:
-            count_statement = count_statement.where(Review.source == source)
-        if sentiment:  # Фильтр по тональности из review_products
-            count_statement = count_statement.where(ReviewProduct.sentiment == sentiment)
+            count_subquery = count_subquery.where(Review.source == source)
+        if sentiment:
+            count_subquery = count_subquery.where(ReviewProduct.sentiment == sentiment)
         if cluster_id:
-            count_statement = count_statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
+            count_subquery = count_subquery.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
 
+        count_statement = select(func.count()).select_from(count_subquery.subquery())
         count_result = await session.execute(count_statement)
         total_count = count_result.scalar() or 0
         logger.debug(f"Total reviews count: {total_count}")
 
-        # Получение отзывов с фильтрацией
-        statement = select(Review).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
+        # Получение отзывов с фильтрацией (уникальные отзывы)
+        # Фильтруем по запрошенному продукту/категории, но получаем ВСЕ связи
+        statement = select(Review).join(ReviewProduct).where(
+            ReviewProduct.product_id.in_(product_ids_for_filter)
+        ).distinct()
 
         if start_date:
             statement = statement.where(Review.date >= start_date)
@@ -1474,7 +1526,7 @@ class StatsService:
             statement = statement.where(Review.date <= end_date)
         if source:
             statement = statement.where(Review.source == source)
-        if sentiment:  # Фильтр по тональности из review_products
+        if sentiment:
             statement = statement.where(ReviewProduct.sentiment == sentiment)
         if cluster_id:
             statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
@@ -1490,7 +1542,7 @@ class StatsService:
         reviews = result.scalars().all()
         logger.debug(f"Retrieved {len(reviews)} reviews for page {page}")
 
-        # Получаем информацию о продуктах и тональностях для каждого отзыва
+        # Получаем ВСЕ связи для найденных отзывов (не только для запрошенного продукта)
         review_ids = [r.id for r in reviews]
         product_info_query = select(
             ReviewProduct.review_id, 
@@ -1502,17 +1554,17 @@ class StatsService:
         product_info_result = await session.execute(product_info_query)
         review_product_map = {}
         for row in product_info_result:
-            review_id, prod_id, sentiment, sentiment_score = row
+            review_id, prod_id, sentiment_val, sentiment_score = row
             if review_id not in review_product_map:
                 review_product_map[review_id] = {
                     'product_ids': [],
                     'sentiments': []
                 }
             review_product_map[review_id]['product_ids'].append(prod_id)
-            if sentiment:  # Добавляем тональность только если она есть
+            if sentiment_val:  # Добавляем тональность только если она есть
                 review_product_map[review_id]['sentiments'].append({
                     'product_id': prod_id,
-                    'sentiment': sentiment,
+                    'sentiment': sentiment_val,
                     'sentiment_score': sentiment_score
                 })
 
@@ -1520,24 +1572,33 @@ class StatsService:
         for review in reviews:
             review_info = review_product_map.get(review.id, {'product_ids': [], 'sentiments': []})
             
-            # Определяем основную тональность отзыва (берем первую из списка)
-            main_sentiment = None
+            # Включаем ВСЕ продукты и тональности для этого отзыва
+            all_sentiments = review_info['sentiments']
+            all_product_ids = review_info['product_ids']
+            
+            # Определяем основной sentiment_score для обратной совместимости
+            # Берем sentiment_score для запрошенного product_id, если есть
             main_sentiment_score = None
-            if review_info['sentiments']:
-                main_sentiment = review_info['sentiments'][0]['sentiment']
-                main_sentiment_score = review_info['sentiments'][0]['sentiment_score']
+            for sent in all_sentiments:
+                if sent['product_id'] == product_id:
+                    main_sentiment_score = sent['sentiment_score']
+                    break
+            
+            # Если не нашли для конкретного product_id, берем первый
+            if not main_sentiment_score and all_sentiments:
+                main_sentiment_score = all_sentiments[0]['sentiment_score']
             
             review_dict = {
                 "id": review.id,
                 "text": review.text,
                 "date": review.date,
                 "rating": review.rating,
-                "sentiment": main_sentiment,  # Основная тональность (для обратной совместимости)
-                "sentiment_score": main_sentiment_score,  # Основной sentiment_score
+                "sentiment": all_sentiments,  # ВСЕ тональности для всех продуктов этого отзыва
+                "sentiment_score": main_sentiment_score,  # Основной sentiment_score для обратной совместимости
                 "source": review.source,
                 "created_at": review.created_at,
-                "product_ids": review_info['product_ids'],
-                "product_sentiments": review_info['sentiments']  # Новое поле с тональностями по продуктам
+                "product_ids": all_product_ids,  # ВСЕ продукты этого отзыва
+                "product_sentiments": all_sentiments  # Дублируем для ясности
             }
             reviews_result.append(review_dict)
         

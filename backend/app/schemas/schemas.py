@@ -101,13 +101,24 @@ class ReviewResponse(ReviewBase):
     id: int
     created_at: datetime
     product_ids: List[int]
+    sentiment: List[Dict[str, Any]]
+
+    class Config:
+        from_attributes = True
+
+class ReviewResponseWithArray(ReviewBase):
+    id: int
+    created_at: datetime
+    product_ids: List[int]
+    sentiment: List[Dict[str, Any]]
+    sentiment_score: Optional[float] = None 
 
     class Config:
         from_attributes = True
 
 class ReviewsResponse(BaseModel):
     total: int
-    reviews: List[ReviewResponse]
+    reviews: List[ReviewResponseWithArray]
     
     class Config:
         from_attributes = True
