@@ -87,14 +87,6 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
         }
     };
 
-    const getChartTitle = () => {
-        if (activeChart === "period2") {
-            return "Выбранный период";
-        } else {
-            return "В сравнении с прошлым";
-        }
-    };
-
     const renderLineChart = () => {
         if (activeChart === "period2") {
             return (
@@ -210,7 +202,7 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
     return (
         <div className={styles.barChartContainer}>
             <div className={styles.header}>
-                <h3>{getChartTitle()}</h3>
+                <h3>Динамика отзывов</h3>
                 {productName && <span className={styles.productName}>{productName}</span>}
             </div>
 
