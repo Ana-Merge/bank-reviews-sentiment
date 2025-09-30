@@ -73,24 +73,6 @@
     font-weight: vars.$font-weight-medium;
 }
 
-.backButton {
-    padding: 12px 24px;
-    background-color: transparent;
-    color: vars.$color-primary;
-    border: 2px solid vars.$color-primary;
-    border-radius: 8px;
-    font-size: vars.$font-size-md;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: vars.$font-weight-medium;
-    white-space: nowrap;
-
-    &:hover {
-        background-color: vars.$color-primary;
-        color: vars.$color-white;
-    }
-}
-
 .pageContent {
     @include card;
 }

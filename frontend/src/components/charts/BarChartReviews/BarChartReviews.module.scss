@@ -17,6 +17,9 @@
 
     h3 {
         font-weight: vars.$font-weight-medium;
+        font-size: vars.$font-size-lg;
+        color: vars.$color-text-dark;
+        margin: 0;
     }
 }
 
@@ -236,6 +239,45 @@
     opacity: 0.8;
 }
 
+.chartToggle {
+    display: flex;
+    justify-content: center;
+    margin: 15px 0 30px 0;
+    gap: 10px;
+}
+
+.toggleButton {
+    padding: 8px 16px;
+    border: 2px solid #e0e0e0;
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+    }
+
+    &.active {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+}
+
+.lineChartSection {
+    margin-bottom: 30px;
+}
+
+.lineChartContainer {
+    background: vars.$color-chart-background;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid vars.$color-chart-border;
+}
+
 @media (max-width: 1400px) {
     .chartRow {
         gap: 24px;
@@ -339,5 +381,20 @@
 
     .year {
         font-size: 10px;
+    }
+
+    .chartToggle {
+        margin: 10px 0 25px 0;
+    }
+
+    .toggleButton {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .header {
+        h3 {
+            font-size: vars.$font-size-md;
+        }
     }
 }

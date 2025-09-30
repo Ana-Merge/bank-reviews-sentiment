@@ -7,9 +7,12 @@ import {
     Tooltip,
     ResponsiveContainer,
 } from "recharts";
+import { useState } from "react";
 import styles from "./BarChartReviews.module.scss";
 
 const BarChartReviews = ({ chartData, aggregationType, productName }) => {
+    const [activeChart, setActiveChart] = useState("period2");
+
     if (!chartData || !chartData.period1 || !chartData.period2) {
         return <div className={styles.noData}>Нет данных для отображения графика</div>;
     }
@@ -27,8 +30,14 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
     // Данные для линейного графика (процентные изменения)
     const lineChartData = chartData.changes ? chartData.changes.map((item) => ({
         name: item.aggregation,
-        "Процентное изменение": item.change_percent,
+        "В сравнении с прошлым": item.change_percent,
     })) : [];
+
+    // Данные для линейного графика period2
+    const period2LineChartData = period2.map((item) => ({
+        name: item.aggregation,
+        "Выбранный период": item.count,
+    }));
 
     const formatDate = (dateString) => {
         if (aggregationType === 'month') {
@@ -78,17 +87,72 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
         }
     };
 
-    return (
-        <div className={styles.barChartContainer}>
-            <div className={styles.header}>
-                <h3>Динамика отзывов по периодам</h3>
-                {productName && <span className={styles.productName}>{productName}</span>}
-            </div>
+    const getChartTitle = () => {
+        if (activeChart === "period2") {
+            return "Выбранный период";
+        } else {
+            return "В сравнении с прошлым";
+        }
+    };
 
-            {/* Линейный график процентных изменений - ПЕРВЫЙ */}
-            {lineChartData.length > 0 && (
+    const renderLineChart = () => {
+        if (activeChart === "period2") {
+            return (
                 <div className={styles.lineChartSection}>
-                    <h4>Процентное изменение отзывов</h4>
+                    <div className={styles.lineChartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <LineChart
+                                data={period2LineChartData}
+                                margin={{
+                                    top: 5,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 40,
+                                }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorPeriod2" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="5%" stopColor="#ff7c7c" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#ff4d4d" stopOpacity={0.8} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    tickFormatter={(tick) => {
+                                        if (aggregationType === "month") {
+                                            return tick.substring(0, 7);
+                                        }
+                                        return tick;
+                                    }}
+                                    tick={{ fontSize: 12, dy: 10 }}
+                                />
+                                <YAxis />
+                                <Tooltip
+                                    formatter={(value) => [`${value}`, 'Выбранный период']}
+                                    labelFormatter={(label) => {
+                                        if (aggregationType === "month") {
+                                            return `Период: ${label.substring(0, 7)}`;
+                                        }
+                                        return `Период: ${label}`;
+                                    }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="Выбранный период"
+                                    stroke="url(#colorPeriod2)"
+                                    strokeWidth={2}
+                                    dot={{ r: 2 }}
+                                    activeDot={{ r: 4 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            );
+        } else {
+            return (
+                <div className={styles.lineChartSection}>
                     <div className={styles.lineChartContainer}>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart
@@ -119,7 +183,7 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
                                 />
                                 <YAxis />
                                 <Tooltip
-                                    formatter={(value) => [`${value}%`, 'Процентное изменение']}
+                                    formatter={(value) => [`${value}%`, 'В сравнении с прошлым']}
                                     labelFormatter={(label) => {
                                         if (aggregationType === "month") {
                                             return `Период: ${label.substring(0, 7)}`;
@@ -129,17 +193,45 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
                                 />
                                 <Line
                                     type="monotone"
-                                    dataKey="Процентное изменение"
+                                    dataKey="В сравнении с прошлым"
                                     stroke="url(#colorPercentageChange)"
                                     strokeWidth={2}
-                                    dot={{ r: 4 }}
-                                    activeDot={{ r: 6 }}
+                                    dot={{ r: 2 }}
+                                    activeDot={{ r: 4 }}
                                 />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-            )}
+            );
+        }
+    };
+
+    return (
+        <div className={styles.barChartContainer}>
+            <div className={styles.header}>
+                <h3>{getChartTitle()}</h3>
+                {productName && <span className={styles.productName}>{productName}</span>}
+            </div>
+
+            {/* Кнопки переключения графиков */}
+            <div className={styles.chartToggle}>
+                <button
+                    className={`${styles.toggleButton} ${activeChart === "period2" ? styles.active : ""}`}
+                    onClick={() => setActiveChart("period2")}
+                >
+                    Выбранный период
+                </button>
+                <button
+                    className={`${styles.toggleButton} ${activeChart === "percentage" ? styles.active : ""}`}
+                    onClick={() => setActiveChart("percentage")}
+                >
+                    В сравнении с прошлым
+                </button>
+            </div>
+
+            {/* Линейный график */}
+            {renderLineChart()}
 
             {/* Столбчатый график */}
             <div className={styles.chartContent}>

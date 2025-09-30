@@ -131,12 +131,6 @@ const UserDashboardsPage = () => {
                         </span>
                     </div>
                 </div>
-                <button
-                    className={styles.backButton}
-                    onClick={handleBackToUsers}
-                >
-                    ← Назад к пользователям
-                </button>
             </div>
 
             {/* Контент страницы */}
