@@ -27,9 +27,9 @@ const AggregationFilter = ({ aggregationType, onAggregationChange }) => {
     };
 
     const aggregationOptions = [
-        { value: 'day', label: 'По дням' },
-        { value: 'week', label: 'По неделям' },
         { value: 'month', label: 'По месяцам' },
+        { value: 'week', label: 'По неделям' },
+        { value: 'day', label: 'По дням' },
     ];
 
     const getDisplayText = () => {

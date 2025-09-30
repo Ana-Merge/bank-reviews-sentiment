@@ -38,8 +38,8 @@ const DateModeFilter = ({ dateMode, onDateModeChange }) => {
     };
 
     const modeOptions = [
-        { value: 'day', label: 'По дням' },
         { value: 'month', label: 'По месяцам' },
+        { value: 'day', label: 'По дням' },
     ];
 
     const getDisplayText = () => {
@@ -86,7 +86,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [source, setSource] = useState(null);
     const [aggregationType, setAggregationType] = useState('month');
-    const [dateMode, setDateMode] = useState('day'); // 'day' или 'month'
+    const [dateMode, setDateMode] = useState('month');
 
     // Даты по умолчанию
     const [startDate, setStartDate] = useState("2025-03-01");
@@ -111,7 +111,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                 setChartType(type);
                 setSource(attributes.source || null);
                 setAggregationType(attributes.aggregation_type || 'month');
-                setDateMode(attributes.date_mode || 'day');
+                setDateMode(attributes.date_mode || 'month');
                 setStartDate(attributes.date_start_1);
                 setEndDate(attributes.date_end_1);
                 setStartDate2(attributes.date_start_2);
@@ -144,7 +144,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
         setSelectedProduct(null);
         setSource(null);
         setAggregationType('month');
-        setDateMode('day');
+        setDateMode('month');
         setStartDate("2025-03-01");
         setEndDate("2025-05-31");
         setStartDate2("2024-12-01");
