@@ -45,10 +45,15 @@ class ReviewProduct(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     review_id: Mapped[int] = mapped_column(ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    sentiment: Mapped[Optional[Sentiment]] = mapped_column(String(20))
+    sentiment_score: Mapped[Optional[float]] = mapped_column(Float)
 
     __table_args__ = (
+        CheckConstraint("sentiment IN ('positive', 'neutral', 'negative')"),
+        CheckConstraint("sentiment_score BETWEEN -1 AND 1"),
         Index("idx_review_products_review_id", "review_id"),
         Index("idx_review_products_product_id", "product_id"),
+        Index("idx_review_products_sentiment", "sentiment"),
     )
 
 class Product(Base):

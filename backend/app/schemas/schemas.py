@@ -224,10 +224,8 @@ class ClusterStatsBase(BaseModel):
         if v is not None and not (0 <= v <= 5):
             raise ValueError("Средний рейтинг должен быть 0 и 5")
         return v
-
 class ClusterStatsCreate(ClusterStatsBase):
     pass
-
 class NotificationBase(BaseModel):
     user_id: int
     message: NonEmptyStr
@@ -240,17 +238,6 @@ class NotificationBase(BaseModel):
         if len(v) > 255:
             raise ValueError("Текст уведомления слишком длинный")
         return v
-
-class NotificationCreate(NotificationBase):
-    pass
-
-class NotificationResponse(NotificationBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 class NotificationConfigBase(BaseModel):
     product_id: int
     notification_type: NotificationType
@@ -265,16 +252,43 @@ class NotificationConfigBase(BaseModel):
             raise ValueError("Threshold must be positive")
         return v
 
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, v):
+        if v not in ["daily", "weekly", "monthly"]:
+            raise ValueError("Period must be daily, weekly or monthly")
+        return v
+class NotificationCreate(NotificationBase):
+    pass
 class NotificationConfigCreate(NotificationConfigBase):
     pass
-
-class NotificationConfigResponse(NotificationConfigBase):
+class NotificationResponse(NotificationBase):
     id: int
-    user_id: int
     created_at: datetime
 
     class Config:
         from_attributes = True
+class NotificationConfigResponse(NotificationConfigBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    product_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+class PeriodStatsResponse(BaseModel):
+    period: str
+    start_date: date
+    end_date: date
+    review_count: int
+    positive_count: int
+    neutral_count: int
+    negative_count: int
+    avg_rating: float
+class NotificationConfigWithStats(NotificationConfigResponse):
+    current_period_stats: Optional[PeriodStatsResponse] = None
+    previous_period_stats: Optional[PeriodStatsResponse] = None
+    change_percent: Optional[float] = None
 
 class ProductStatsResponse(BaseModel):
     product_name: str

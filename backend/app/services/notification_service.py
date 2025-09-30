@@ -1,12 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from app.repositories.repositories import NotificationConfigRepository, ProductRepository, ReviewRepository, MonthlyStatsRepository, NotificationRepository, AuditLogRepository
 from app.models.user_models import User
 from app.models.models import Notification, NotificationConfig, NotificationType
 from app.schemas.schemas import NotificationConfigCreate
 from app.core.exceptions import EntityNotFoundException
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from dateutil.relativedelta import relativedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 class NotificationService:
     def __init__(
@@ -50,90 +53,234 @@ class NotificationService:
             await self._audit_log_repo.save(session, user_id, f"Deleted notification config ID: {config_id}")
         return deleted
 
+    def get_comparison_periods(self, period: str) -> Tuple[Optional[date], Optional[date], Optional[date], Optional[date]]:
+        """
+        Возвращает кортеж (current_start, current_end, prev_start, prev_end) для сравнения.
+        Всегда сравнивает два завершенных периода.
+        """
+        today = date.today()
+        
+        if period == "monthly":
+            # Сравниваем два полных завершенных месяца
+            last_month = today.replace(day=1) - timedelta(days=1)  # Последний день прошлого месяца
+            current_start = last_month.replace(day=1)  # Начало прошлого месяца
+            current_end = last_month  # Конец прошлого месяца
+            
+            prev_month_end = current_start - timedelta(days=1)  # Конец пред-прошлого месяца
+            prev_start = prev_month_end.replace(day=1)  # Начало пред-прошлого месяца
+            prev_end = prev_month_end  # Конец пред-прошлого месяца
+            
+            logger.info(f"Monthly periods - Current: {current_start} to {current_end}, Previous: {prev_start} to {prev_end}")
+            return current_start, current_end, prev_start, prev_end
+            
+        elif period == "weekly":
+            # Сравниваем две полные завершенные недели (понедельник-воскресенье)
+            last_sunday = today - timedelta(days=today.weekday() + 1)  # Прошлое воскресенье
+            current_start = last_sunday - timedelta(days=6)  # Понедельник прошлой недели
+            current_end = last_sunday  # Воскресенье прошлой недели
+            
+            prev_start = current_start - timedelta(days=7)  # Понедельник пред-прошлой недели
+            prev_end = current_end - timedelta(days=7)  # Воскресенье пред-прошлой недели
+            
+            logger.info(f"Weekly periods - Current: {current_start} to {current_end}, Previous: {prev_start} to {prev_end}")
+            return current_start, current_end, prev_start, prev_end
+            
+        elif period == "daily":
+            # Сравниваем вчера с тем же днем недели на прошлой неделе
+            yesterday = today - timedelta(days=1)
+            current_start = yesterday
+            current_end = yesterday
+            
+            # Берем тот же день недели неделю назад
+            prev_start = yesterday - timedelta(days=7)
+            prev_end = prev_start
+            
+            logger.info(f"Daily periods - Current: {current_start}, Previous: {prev_start}")
+            return current_start, current_end, prev_start, prev_end
+        
+        logger.warning(f"Unknown period type: {period}")
+        return None, None, None, None
+
+    async def get_period_data(self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date) -> Dict[str, Any]:
+        """Получает все данные для указанного периода"""
+        review_count = await self._review_repo.count_by_product_and_period(
+            session, product_ids, start_date, end_date
+        )
+        
+        tonality_counts = await self._review_repo.get_tonality_counts_by_product_and_period(
+            session, product_ids, start_date, end_date
+        )
+        
+        avg_rating = await self._review_repo.get_avg_rating_by_products(
+            session, product_ids, start_date, end_date
+        )
+        
+        return {
+            'review_count': review_count,
+            'tonality_counts': tonality_counts,
+            'avg_rating': avg_rating,
+            'total_reviews': sum(tonality_counts.values())
+        }
+
     async def check_and_generate_notifications(self, session: AsyncSession):
+        """Основной метод проверки и генерации уведомлений"""
         configs = await self._config_repo.get_active_configs(session)
+        logger.info(f"Checking {len(configs)} active notification configs")
+        
+        notifications_generated = 0
+        
         for config in configs:
-            product = await self._product_repo.get_by_id(session, config.product_id)
-            if not product:
-                continue
+            try:
+                product = await self._product_repo.get_by_id(session, config.product_id)
+                if not product:
+                    logger.warning(f"Product {config.product_id} not found for config {config.id}")
+                    continue
 
-            descendants = await self._product_repo.get_all_descendants(session, config.product_id)
-            product_ids = [config.product_id] + [d.id for d in descendants]
-
-            today = date.today()
-            current_month = date(today.year, today.month, 1)
-            prev_month = (current_month - relativedelta(months=1)).replace(day=1)
-
-            if config.period != "monthly":
-                continue
-
-            current_end = current_month + relativedelta(months=1) - timedelta(days=1)
-            prev_end = prev_month + relativedelta(months=1) - timedelta(days=1)
-
-            current_review_count = await self._review_repo.count_by_product_and_period(
-                session, product_ids, current_month, current_end
-            )
-            prev_review_count = await self._review_repo.count_by_product_and_period(
-                session, product_ids, prev_month, prev_end
-            )
-
-            current_tonality = await self._review_repo.get_tonality_counts_by_product_and_period(
-                session, product_ids, current_month, current_end
-            )
-            prev_tonality = await self._review_repo.get_tonality_counts_by_product_and_period(
-                session, product_ids, prev_month, prev_end
-            )
-
-            current_avg_rating = await self._review_repo.get_avg_rating_by_products(
-                session, product_ids
-            )
-            prev_avg_rating = await self._review_repo.get_avg_rating_by_products(
-                session, product_ids
-            )
-
-            message = None
-            if config.notification_type == NotificationType.REVIEW_SPIKE:
-                if prev_review_count > 0:
-                    change = ((current_review_count - prev_review_count) / prev_review_count) * 100
-                    if abs(change) > config.threshold:
-                        message = f"Review spike for product {product.name}: {change:.2f}% change ({prev_review_count} → {current_review_count})"
-                elif current_review_count > 0:
-                    message = f"Review spike for product {product.name}: new reviews appeared ({current_review_count})"
-
-            elif config.notification_type == NotificationType.SENTIMENT_DECLINE:
-                current_positive = current_tonality.get('positive', 0)
-                prev_positive = prev_tonality.get('positive', 0)
-                current_total = sum(current_tonality.values())
-                prev_total = sum(prev_tonality.values())
+                # Получаем всех потомков продукта
+                descendants = await self._product_repo.get_all_descendants(session, config.product_id)
+                product_ids = [config.product_id] + [d.id for d in descendants]
                 
-                if prev_total > 0 and current_total > 0:
-                    current_positive_percent = (current_positive / current_total) * 100
-                    prev_positive_percent = (prev_positive / prev_total) * 100
-                    change = current_positive_percent - prev_positive_percent
+                logger.info(f"Checking config {config.id} for product {product.name} (IDs: {product_ids})")
+
+                # Получаем периоды для сравнения
+                current_start, current_end, prev_start, prev_end = self.get_comparison_periods(config.period)
+                
+                if not all([current_start, current_end, prev_start, prev_end]):
+                    logger.warning(f"Could not determine periods for config {config.id} with period {config.period}")
+                    continue
+
+                # Получаем данные для обоих периодов
+                current_data = await self.get_period_data(session, product_ids, current_start, current_end)
+                prev_data = await self.get_period_data(session, product_ids, prev_start, prev_end)
+                
+                logger.info(f"Config {config.id} - Current: {current_data}, Previous: {prev_data}")
+
+                # Проверяем пороги и генерируем уведомления
+                notification_generated = await self.check_config_thresholds(
+                    session, config, product, current_data, prev_data, current_start, current_end
+                )
+                
+                if notification_generated:
+                    notifications_generated += 1
                     
-                    if change < -config.threshold:
-                        message = f"Sentiment decline for product {product.name}: positive reviews decreased by {abs(change):.2f}%"
+            except Exception as e:
+                logger.error(f"Error processing config {config.id}: {str(e)}", exc_info=True)
+                continue
+        
+        logger.info(f"Notification check completed. Generated {notifications_generated} notifications")
 
-            elif config.notification_type == NotificationType.RATING_DROP:
-                if prev_avg_rating > 0 and current_avg_rating > 0:
-                    change = current_avg_rating - prev_avg_rating
-                    if change < -config.threshold:
-                        message = f"Rating drop for product {product.name}: {prev_avg_rating:.2f} → {current_avg_rating:.2f} (change: {change:.2f})"
+    async def check_config_thresholds(
+        self, 
+        session: AsyncSession, 
+        config: NotificationConfig, 
+        product: Any,
+        current_data: Dict[str, Any], 
+        prev_data: Dict[str, Any],
+        current_start: date,
+        current_end: date
+    ) -> bool:
+        """Проверяет конкретную конфигурацию на превышение порогов"""
+        
+        message = None
+        period_label = self.get_period_label(config.period, current_start, current_end)
 
-            elif config.notification_type == NotificationType.NEGATIVE_SPIKE:
-                current_negative = current_tonality.get('negative', 0)
-                prev_negative = prev_tonality.get('negative', 0)
-                
-                if prev_negative > 0:
-                    negative_change = ((current_negative - prev_negative) / prev_negative) * 100
-                    if negative_change > config.threshold:
-                        message = f"Negative reviews spike for product {product.name}: {negative_change:.2f}% increase ({prev_negative} → {current_negative})"
-                elif current_negative > 0:
-                    message = f"Negative reviews appeared for product {product.name}: {current_negative} negative reviews"
+        if config.notification_type == NotificationType.REVIEW_SPIKE:
+            message = await self.check_review_spike(config, product, current_data, prev_data, period_label)
+            
+        elif config.notification_type == NotificationType.SENTIMENT_DECLINE:
+            message = await self.check_sentiment_decline(config, product, current_data, prev_data, period_label)
+            
+        elif config.notification_type == NotificationType.RATING_DROP:
+            message = await self.check_rating_drop(config, product, current_data, prev_data, period_label)
+            
+        elif config.notification_type == NotificationType.NEGATIVE_SPIKE:
+            message = await self.check_negative_spike(config, product, current_data, prev_data, period_label)
 
-            if message:
-                await self.generate_notification(session, config.user_id, message, config.notification_type)
-                await self._audit_log_repo.save(session, config.user_id, f"Generated auto-notification: {config.notification_type}")
+        if message:
+            await self.generate_notification(session, config.user_id, message, config.notification_type)
+            await self._audit_log_repo.save(session, config.user_id, 
+                                          f"Generated {config.notification_type} notification for {product.name}")
+            return True
+        
+        return False
+
+    async def check_review_spike(self, config: NotificationConfig, product: Any, 
+                               current_data: Dict, prev_data: Dict, period_label: str) -> Optional[str]:
+        """Проверка резкого роста количества отзывов"""
+        current_count = current_data['review_count']
+        prev_count = prev_data['review_count']
+        
+        if prev_count > 0:
+            change_percent = ((current_count - prev_count) / prev_count) * 100
+            if change_percent > config.threshold:
+                return (f"📈 Резкий рост отзывов по продукту '{product.name}' "
+                       f"за {period_label}: +{change_percent:.1f}% "
+                       f"({prev_count} → {current_count} отзывов)")
+        
+        return None
+
+    async def check_sentiment_decline(self, config: NotificationConfig, product: Any,
+                                    current_data: Dict, prev_data: Dict, period_label: str) -> Optional[str]:
+        """Проверка ухудшения тональности"""
+        current_positive = current_data['tonality_counts'].get('positive', 0)
+        prev_positive = prev_data['tonality_counts'].get('positive', 0)
+        current_total = current_data['total_reviews']
+        prev_total = prev_data['total_reviews']
+        
+        if prev_total > 0 and current_total > 0:
+            current_positive_percent = (current_positive / current_total) * 100
+            prev_positive_percent = (prev_positive / prev_total) * 100
+            change = current_positive_percent - prev_positive_percent
+            
+            if change < -config.threshold:
+                return (f"📉 Ухудшение тональности по продукту '{product.name}' "
+                       f"за {period_label}: доля позитивных отзывов снизилась на {abs(change):.1f}% "
+                       f"({prev_positive_percent:.1f}% → {current_positive_percent:.1f}%)")
+        
+        return None
+
+    async def check_rating_drop(self, config: NotificationConfig, product: Any,
+                              current_data: Dict, prev_data: Dict, period_label: str) -> Optional[str]:
+        """Проверка падения рейтинга"""
+        current_rating = current_data['avg_rating'] or 0
+        prev_rating = prev_data['avg_rating'] or 0
+        
+        if prev_rating > 0 and current_rating > 0:
+            change = current_rating - prev_rating
+            if change < -config.threshold:
+                return (f"⭐ Падение рейтинга продукта '{product.name}' "
+                       f"за {period_label}: {prev_rating:.2f} → {current_rating:.2f} "
+                       f"(снижение на {abs(change):.2f} баллов)")
+        
+        return None
+
+    async def check_negative_spike(self, config: NotificationConfig, product: Any,
+                                 current_data: Dict, prev_data: Dict, period_label: str) -> Optional[str]:
+        """Проверка роста негативных отзывов"""
+        current_negative = current_data['tonality_counts'].get('negative', 0)
+        prev_negative = prev_data['tonality_counts'].get('negative', 0)
+        
+        if prev_negative > 0:
+            change_percent = ((current_negative - prev_negative) / prev_negative) * 100
+            if change_percent > config.threshold:
+                return (f"🔴 Рост негативных отзывов по продукту '{product.name}' "
+                       f"за {period_label}: +{change_percent:.1f}% "
+                       f"({prev_negative} → {current_negative} негативных отзывов)")
+        elif current_negative > 0 and prev_negative == 0:
+            return (f"🔴 Появились негативные отзывы по продукту '{product.name}' "
+                   f"за {period_label}: {current_negative} негативных отзывов")
+        
+        return None
+
+    def get_period_label(self, period: str, start_date: date, end_date: str) -> str:
+        """Генерирует читаемую метку периода"""
+        if period == "daily":
+            return start_date.strftime("%d.%m.%Y")
+        elif period == "weekly":
+            return f"неделю {start_date.strftime('%d.%m')}-{end_date.strftime('%d.%m.%Y')}"
+        elif period == "monthly":
+            return start_date.strftime("%B %Y").lower()
+        return f"период {start_date} - {end_date}"
 
     async def generate_notification(
         self, session: AsyncSession, user_id: int, message: str, notification_type: str
@@ -144,7 +291,7 @@ class NotificationService:
             type=notification_type
         )
         saved = await self._notification_repo.save(session, notification)
-        await self._audit_log_repo.save(session, user_id, f"Generated notification: {notification_type}")
+        logger.info(f"Generated notification for user {user_id}: {message}")
         return saved
 
     async def get_user_notifications(self, session: AsyncSession, user_id: int, is_read: bool = False) -> List[Notification]:

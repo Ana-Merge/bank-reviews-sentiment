@@ -394,52 +394,23 @@ async def get_reviews(
     end_date: Optional[date] = Query(None),
     cluster_id: Optional[int] = Query(None),
     source: Optional[str] = Query(None, description="Фильтр по источнику отзывов"),
+    sentiment: Optional[str] = Query(None, description="Фильтр по тональности: 'positive', 'neutral', 'negative'"),  # Добавляем параметр
     order_by: str = Query("desc", description="Сортировка по дате: 'asc' или 'desc'"),
     page: int = Query(0, ge=0),
     size: int = Query(30, ge=1, le=100),
 ):
     """
-    Получение списка отзывов по продукту с опциональной фильтрацией по кластеру, дате и источнику, с пагинацией.
-
-    **Что передавать**:
-    - **Параметры запроса**:
-      - `product_id`: ID продукта (обязательно, например, 3 для карты "Мир").
-      - `start_date`: Начальная дата периода (опционально, формат YYYY-MM-DD, например, 2025-01-01).
-      - `end_date`: Конечная дата периода (опционально, формат YYYY-MM-DD, например, 2025-06-30).
-      - `cluster_id`: ID кластера для фильтрации (опционально, например, 4 для конкретного кластера; если не указан, возвращаются все отзывы).
-      - `source`: Источник отзывов для фильтрации (опционально, например, 'Banki.ru', 'App Store', 'Google Play').
-      - `order_by`: Сортировка по дате (опционально, 'asc' для возрастания или 'desc' для убывания, по умолчанию 'desc').
-      - `page`: Номер страницы (опционально, по умолчанию 0).
-      - `size`: Количество отзывов на странице (опционально, по умолчанию 30, максимум 100).
-
-    **Что получите в ответе**:
-    - **Код 200 OK**: Объект с общим количеством отзывов и списком отзывов на текущей странице.
-      - **Формат JSON**:
-        ```json
-        {
-          "total": 150,
-          "reviews": [
-            {
-              "id": 1,
-              "text": "Отличный продукт!",
-              "date": "2025-01-15",
-              "product_ids": [3],
-              "rating": 5,
-              "sentiment": "positive",
-              "sentiment_score": 0.9,
-              "source": "Banki.ru",
-              "created_at": "2025-01-15T10:30:00"
-            }
-          ]
-        }
-        ```
+    Получение списка отзывов по продукту с опциональной фильтрацией по кластеру, дате, источнику и тональности, с пагинацией.
     """
     try:
         if order_by not in ["asc", "desc"]:
             raise HTTPException(status_code=400, detail="order_by must be 'asc' or 'desc'")
+        
+        if sentiment and sentiment not in ["positive", "neutral", "negative"]:
+            raise HTTPException(status_code=400, detail="sentiment must be 'positive', 'neutral', or 'negative'")
             
         data = await stats_service.get_reviews(
-            db, product_id, start_date, end_date, cluster_id, source, order_by, page, size
+            db, product_id, start_date, end_date, cluster_id, source, sentiment, order_by, page, size  # Добавляем sentiment
         )
         return data
     except HTTPException:

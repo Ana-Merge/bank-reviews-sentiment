@@ -209,7 +209,8 @@ class ReviewRepository:
         return reviews
 
     async def count_by_product_and_period(
-        self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, source: Optional[str] = None
+        self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, 
+        source: Optional[str] = None, sentiment: Optional[str] = None
     ) -> int:
         if not product_ids:
             return 0
@@ -220,22 +221,26 @@ class ReviewRepository:
         )
         if source:
             statement = statement.where(Review.source == source)
+        if sentiment:
+            statement = statement.where(ReviewProduct.sentiment == sentiment)
         result = await session.execute(statement)
         return result.scalar() or 0
 
     async def get_tonality_counts_by_product_and_period(
-        self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, source: Optional[str] = None
+        self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date, 
+        source: Optional[str] = None
     ) -> Dict[str, int]:
         if not product_ids:
             return {"positive": 0, "neutral": 0, "negative": 0}
         statement = select(
-            Review.sentiment,
+            ReviewProduct.sentiment,  # Теперь берем из ReviewProduct
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             ReviewProduct.product_id.in_(product_ids),
             Review.date >= start_date,
-            Review.date <= end_date
-        ).group_by(Review.sentiment)
+            Review.date <= end_date,
+            ReviewProduct.sentiment.isnot(None)  # Убедимся, что тональность есть
+        ).group_by(ReviewProduct.sentiment)
         if source:
             statement = statement.where(Review.source == source)
         result = await session.execute(statement)
@@ -247,33 +252,47 @@ class ReviewRepository:
         }
 
     async def get_avg_rating_by_products(
-        self, session: AsyncSession, product_ids: List[int], source: Optional[str] = None
+        self, session: AsyncSession, product_ids: List[int], start_date: Optional[date] = None, 
+        end_date: Optional[date] = None, source: Optional[str] = None
     ) -> float:
         if not product_ids:
             return 0.0
         statement = select(
             func.avg(Review.rating).label("avg_rating")
         ).join(ReviewProduct).where(
-            ReviewProduct.product_id.in_(product_ids)
+            ReviewProduct.product_id.in_(product_ids),
+            Review.rating.isnot(None)
         )
+        
+        if start_date:
+            statement = statement.where(Review.date >= start_date)
+        if end_date:
+            statement = statement.where(Review.date <= end_date)
         if source:
             statement = statement.where(Review.source == source)
-        statement = statement.where(Review.rating.isnot(None))
+            
         result = await session.execute(statement)
         avg_rating = result.scalar() or 0.0
-        return avg_rating
+        return float(avg_rating)
 
     async def get_reviews_by_product_and_period(
         self, session: AsyncSession, product_ids: List[int], start_date: date, end_date: date,
-        page: int = 0, size: int = 100, cluster_id: Optional[int] = None
+        page: int = 0, size: int = 100, cluster_id: Optional[int] = None, 
+        sentiment: Optional[str] = None, source: Optional[str] = None
     ) -> List[Review]:
         statement = select(Review).join(ReviewProduct).where(
             ReviewProduct.product_id.in_(product_ids),
             Review.date >= start_date,
             Review.date <= end_date
         ).order_by(Review.date.desc()).offset(page * size).limit(size)
+        
         if cluster_id:
             statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
+        if sentiment:
+            statement = statement.where(ReviewProduct.sentiment == sentiment)
+        if source:
+            statement = statement.where(Review.source == source)
+            
         result = await session.execute(statement)
         return result.scalars().all()
 

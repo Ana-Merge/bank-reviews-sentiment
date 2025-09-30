@@ -137,27 +137,42 @@ async def seed_db():
                 product_mappings = {}
                 product_id_list = list(product_ids.values())
                 sources = ['Banki.ru', 'App Store', 'Google Play']
+                sentiments = list(Sentiment)
+
                 for _ in range(2000):
                     num_products = random.randint(1, 3)
                     selected_product_ids = random.sample(product_id_list, k=num_products)
                     date_random = date(2025, random.randint(1, 9), random.randint(1, 28))
                     rating = random.randint(1, 5)
-                    sentiment = random.choice(list(Sentiment))
                     source = random.choice(sources)
                     text = f"Review text mentioning products {', '.join(map(str, selected_product_ids))} on {date_random}"
-                    review = Review(text=text, date=date_random, rating=rating, sentiment=sentiment, source=source, created_at=datetime.now())
+                    
+                    # Создаем отзыв без тональности (будет в review_products)
+                    review = Review(text=text, date=date_random, rating=rating, source=source, created_at=datetime.now())
                     product_mappings[id(review)] = selected_product_ids
                     reviews_list.append(review)
+
                 session.add_all(reviews_list)
                 await session.flush()
                 logger.info("Reviews seeded")
 
+                # Создаем связи в review_products с тональностями
                 for review in reviews_list:
                     for pid in product_mappings[id(review)]:
-                        rp = ReviewProduct(review_id=review.id, product_id=pid)
+                        # Для каждого продукта назначаем случайную тональность
+                        sentiment = random.choice(sentiments)
+                        sentiment_score = round(random.uniform(-1.0, 1.0), 2)
+                        
+                        rp = ReviewProduct(
+                            review_id=review.id, 
+                            product_id=pid,
+                            sentiment=sentiment,
+                            sentiment_score=sentiment_score
+                        )
                         session.add(rp)
                 await session.flush()
                 logger.info("ReviewProduct associations seeded")
+
 
                 review_clusters = []
                 for review in reviews_list:
@@ -184,9 +199,23 @@ async def seed_db():
                         if review_count == 0:
                             continue
                         avg_rating = sum(r.rating for r in relevant_reviews) / review_count
-                        positive_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.POSITIVE])
-                        neutral_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.NEUTRAL])
-                        negative_count = len([r for r in relevant_reviews if r.sentiment == Sentiment.NEGATIVE])
+                        positive_count = 0
+                        neutral_count = 0
+                        negative_count = 0
+                        for review in relevant_reviews:
+                            # Получаем тональности из review_products для этого отзыва и продукта
+                            sentiment_stmt = select(ReviewProduct.sentiment).where(
+                                ReviewProduct.review_id == review.id,
+                                ReviewProduct.product_id == product_id
+                            )
+                            sentiment_result = await session.execute(sentiment_stmt)
+                            sentiment = sentiment_result.scalar()
+                            if sentiment == Sentiment.POSITIVE:
+                                positive_count += 1
+                            if sentiment == Sentiment.NEUTRAL:
+                                neutral_count += 1
+                            if sentiment == Sentiment.NEGATIVE:
+                                negative_count += 1
                         sentiment_trend = (positive_count - negative_count) / review_count if review_count > 0 else 0
                         prev_month_start = month_start - timedelta(days=28)
                         prev_review_count = len([r for r in reviews_list if product_id in product_mappings[id(r)] and prev_month_start <= r.date < month_start])
@@ -244,17 +273,49 @@ async def seed_db():
                 await session.flush()
                 logger.info("Cluster stats seeded")
 
+                # ========== ОБНОВЛЕННЫЙ БЛОК УВЕДОМЛЕНИЙ ==========
+                
+                # Создаем реалистичные даты для уведомлений
+                now = datetime.now()
+                yesterday = now - timedelta(days=1)
+                two_days_ago = now - timedelta(days=2)
+                week_ago = now - timedelta(days=7)
+                two_weeks_ago = now - timedelta(days=14)
+
                 notifications = [
-                    Notification(user_id=user_ids["manager"], message="Резкий скачок отзывов по карте Мир (+25%)!", type=NotificationType.REVIEW_SPIKE, is_read=False),
-                    Notification(user_id=user_ids["manager"], message="Ухудшение тональности по комиссиям (-18%)", type=NotificationType.SENTIMENT_DECLINE, is_read=False),
-                    Notification(user_id=user_ids["manager2"], message="Снижение рейтинга продукта Mir Supreme (-10%)", type=NotificationType.RATING_DROP, is_read=False),
-                    Notification(user_id=user_ids["manager3"], message="Рост негативных отзывов (+30%)", type=NotificationType.NEGATIVE_SPIKE, is_read=False),
+                    # Уведомления для manager (прочитанные и непрочитанные)
+                    Notification(user_id=user_ids["manager"], message="📈 Резкий рост отзывов по карте 'Мир' за вчера: +150% (2 → 5 отзывов)", type=NotificationType.REVIEW_SPIKE, is_read=False, created_at=now),
+                    Notification(user_id=user_ids["manager"], message="📉 Ухудшение тональности по карте 'Мир' за неделю 06.10-12.10: доля позитивных отзывов снизилась на 25%", type=NotificationType.SENTIMENT_DECLINE, is_read=True, created_at=yesterday),
+                    Notification(user_id=user_ids["manager"], message="⭐ Падение рейтинга продукта 'Золотая карта' за сентябрь 2025: 4.8 → 4.5 (снижение на 0.3 баллов)", type=NotificationType.RATING_DROP, is_read=False, created_at=two_days_ago),
+                    Notification(user_id=user_ids["manager"], message="🔴 Рост негативных отзывов по 'Mir Supreme' за 14.10.2025: +80% (5 → 9 негативных отзывов)", type=NotificationType.NEGATIVE_SPIKE, is_read=True, created_at=week_ago),
+                    
+                    # Уведомления для manager2
+                    Notification(user_id=user_ids["manager2"], message="📈 Высокий спрос на 'Вклад лучшие проценты': рост отзывов на 120% за неделю", type=NotificationType.REVIEW_SPIKE, is_read=False, created_at=now),
+                    Notification(user_id=user_ids["manager2"], message="📉 Пользователи жалуются на комиссии по 'DEB Supreme': негатив вырос на 45%", type=NotificationType.SENTIMENT_DECLINE, is_read=False, created_at=yesterday),
+                    Notification(user_id=user_ids["manager2"], message="⭐ Рейтинг 'Для школьников' упал с 4.2 до 3.8 за месяц", type=NotificationType.RATING_DROP, is_read=True, created_at=two_days_ago),
+                    Notification(user_id=user_ids["manager2"], message="🔴 Критический рост негатива по 'Платиновая карта': +200% за две недели", type=NotificationType.NEGATIVE_SPIKE, is_read=False, created_at=week_ago),
+                    Notification(user_id=user_ids["manager2"], message="📈 Новые отзывы по 'Карта gazpromDEB' появились после обновления условий", type=NotificationType.REVIEW_SPIKE, is_read=True, created_at=two_weeks_ago),
+                    
+                    # Уведомления для manager3  
+                    Notification(user_id=user_ids["manager3"], message="📉 Снижение удовлетворенности по 'Технической поддержке' на 35%", type=NotificationType.SENTIMENT_DECLINE, is_read=False, created_at=now),
+                    Notification(user_id=user_ids["manager3"], message="⭐ 'Вклад Накопилка' получил низкие оценки за октябрь: 3.5/5", type=NotificationType.RATING_DROP, is_read=False, created_at=yesterday),
+                    Notification(user_id=user_ids["manager3"], message="🔴 Много жалоб на 'Лимиты и ограничения' по дебетовым картам", type=NotificationType.NEGATIVE_SPIKE, is_read=True, created_at=two_days_ago),
+                    Notification(user_id=user_ids["manager3"], message="📈 Активное обсуждение 'Кешбек и бонусы' в социальных сетях", type=NotificationType.REVIEW_SPIKE, is_read=False, created_at=week_ago),
+                    
+                    # Уведомления для admin
+                    Notification(user_id=user_ids["admin"], message="📊 Еженедельный отчет: 45 новых уведомлений сгенерировано системой", type=NotificationType.REVIEW_SPIKE, is_read=False, created_at=now),
+                    Notification(user_id=user_ids["admin"], message="⚠️ Внимание! Высокий уровень негатива по продуктам категории 'Карты'", type=NotificationType.NEGATIVE_SPIKE, is_read=False, created_at=yesterday),
+                    Notification(user_id=user_ids["admin"], message="📈 Топ продукт недели: 'Винстон черчиль' - рост отзывов на 85%", type=NotificationType.REVIEW_SPIKE, is_read=True, created_at=two_days_ago),
+                    Notification(user_id=user_ids["admin"], message="📉 Требуется внимание: падение рейтинга по 3 продуктам одновременно", type=NotificationType.RATING_DROP, is_read=False, created_at=week_ago),
                 ]
                 session.add_all(notifications)
                 await session.flush()
-                logger.info("Notifications seeded")
+                logger.info("Enhanced notifications seeded")
 
+                # ========== ОБНОВЛЕННЫЙ БЛОК КОНФИГУРАЦИЙ УВЕДОМЛЕНИЙ ==========
+                
                 configs = [
+                    # Конфигурации для manager (все периоды)
                     NotificationConfig(
                         user_id=user_ids["manager"],
                         product_id=product_ids["карта \"Мир\""],
@@ -262,15 +323,28 @@ async def seed_db():
                         threshold=20.0,
                         period="monthly",
                         active=True,
+                        created_at=now - timedelta(days=30)
                     ),
                     NotificationConfig(
                         user_id=user_ids["manager"],
                         product_id=product_ids["карта \"Мир\""],
                         notification_type=NotificationType.NEGATIVE_SPIKE,
                         threshold=30.0,
-                        period="monthly",
+                        period="weekly",
                         active=True,
+                        created_at=now - timedelta(days=15)
                     ),
+                    NotificationConfig(
+                        user_id=user_ids["manager"],
+                        product_id=product_ids["Золотая карта"],
+                        notification_type=NotificationType.RATING_DROP,
+                        threshold=0.3,
+                        period="daily",
+                        active=True,
+                        created_at=now - timedelta(days=7)
+                    ),
+                    
+                    # Конфигурации для manager2
                     NotificationConfig(
                         user_id=user_ids["manager2"],
                         product_id=product_ids["Mir Supreme"],
@@ -278,16 +352,77 @@ async def seed_db():
                         threshold=0.5,
                         period="monthly",
                         active=True,
+                        created_at=now - timedelta(days=25)
+                    ),
+                    NotificationConfig(
+                        user_id=user_ids["manager2"],
+                        product_id=product_ids["Вклад лучшие проценты"],
+                        notification_type=NotificationType.REVIEW_SPIKE,
+                        threshold=50.0,
+                        period="weekly",
+                        active=True,
+                        created_at=now - timedelta(days=10)
+                    ),
+                    NotificationConfig(
+                        user_id=user_ids["manager2"],
+                        product_id=product_ids["Платиновая карта"],
+                        notification_type=NotificationType.NEGATIVE_SPIKE,
+                        threshold=100.0,
+                        period="daily",
+                        active=False,  # Неактивная конфигурация
+                        created_at=now - timedelta(days=5)
+                    ),
+                    
+                    # Конфигурации для manager3
+                    NotificationConfig(
+                        user_id=user_ids["manager3"],
+                        product_id=product_ids["Для школьников"],
+                        notification_type=NotificationType.SENTIMENT_DECLINE,
+                        threshold=25.0,
+                        period="monthly",
+                        active=True,
+                        created_at=now - timedelta(days=20)
+                    ),
+                    NotificationConfig(
+                        user_id=user_ids["manager3"],
+                        product_id=product_ids["DEB Supreme"],
+                        notification_type=NotificationType.NEGATIVE_SPIKE,
+                        threshold=40.0,
+                        period="weekly",
+                        active=True,
+                        created_at=now - timedelta(days=12)
+                    ),
+                    
+                    # Конфигурации для admin
+                    NotificationConfig(
+                        user_id=user_ids["admin"],
+                        product_id=product_ids["карта gazpromDEB"],
+                        notification_type=NotificationType.REVIEW_SPIKE,
+                        threshold=10.0,
+                        period="daily",
+                        active=True,
+                        created_at=now - timedelta(days=3)
+                    ),
+                    NotificationConfig(
+                        user_id=user_ids["admin"],
+                        product_id=product_ids["Вклад Накопилка"],
+                        notification_type=NotificationType.RATING_DROP,
+                        threshold=0.2,
+                        period="monthly",
+                        active=True,
+                        created_at=now - timedelta(days=28)
                     ),
                 ]
                 session.add_all(configs)
                 await session.flush()
-                logger.info("Notification configs seeded")
+                logger.info("Enhanced notification configs seeded")
 
                 audit_logs = [
                     AuditLog(user_id=user_ids["admin"], action="User login", timestamp=datetime.now()),
                     AuditLog(user_id=user_ids["manager"], action="Product stats viewed", timestamp=datetime.now() - timedelta(hours=1)),
                     AuditLog(user_id=user_ids["manager2"], action="Notification read", timestamp=datetime.now() - timedelta(hours=2)),
+                    AuditLog(user_id=user_ids["manager3"], action="Notification settings updated", timestamp=datetime.now() - timedelta(hours=3)),
+                    AuditLog(user_id=user_ids["admin"], action="System notification check completed", timestamp=datetime.now() - timedelta(hours=4)),
                 ]
                 session.add_all(audit_logs)
                 await session.flush()

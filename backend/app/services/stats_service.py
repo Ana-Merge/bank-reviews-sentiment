@@ -161,19 +161,19 @@ class StatsService:
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
-            Review.sentiment,
+            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             and_(
                 ReviewProduct.product_id.in_(product_ids),
                 Review.date >= start_date_parsed,
                 Review.date <= end_date_parsed,
-                Review.sentiment.isnot(None)
+                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
             )
         )
         if source:
             period1_query = period1_query.where(Review.source == source)
-        period1_query = period1_query.group_by(agg_date, Review.sentiment).order_by(agg_date)
+        period1_query = period1_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
         period1_result = await session.execute(period1_query)
         period1_data = period1_result.all()
 
@@ -186,19 +186,19 @@ class StatsService:
         
         period2_query = select(
             agg_date,
-            Review.sentiment,
+            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             and_(
                 ReviewProduct.product_id.in_(product_ids),
                 Review.date >= start_date2_parsed,
                 Review.date <= end_date2_parsed,
-                Review.sentiment.isnot(None)
+                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
             )
         )
         if source:
             period2_query = period2_query.where(Review.source == source)
-        period2_query = period2_query.group_by(agg_date, Review.sentiment).order_by(agg_date)
+        period2_query = period2_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
         period2_result = await session.execute(period2_query)
         period2_data = period2_result.all()
 
@@ -484,7 +484,6 @@ class StatsService:
             "period2": period2,
             "changes": changes
         }
-
 
     async def get_monthly_pie_chart(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
@@ -777,7 +776,7 @@ class StatsService:
             
             change_percent = round(((total_count - prev_count) / prev_count * 100), 1) if prev_count > 0 else 100.0 if total_count > 0 else 0.0
             logger.debug(f"Change percent: {change_percent}")
-            effective_sentiment = func.coalesce(ReviewCluster.sentiment_contribution, Review.sentiment).label("effective_sentiment")
+            effective_sentiment = func.coalesce(ReviewCluster.sentiment_contribution, ReviewProduct.sentiment).label("effective_sentiment")  # Используем ReviewProduct.sentiment
             statement = select(
                 effective_sentiment,
                 func.sum(ReviewCluster.topic_weight).label("weighted_count")
@@ -1066,7 +1065,6 @@ class StatsService:
             "changes": changes
         }                                                 
     
-    
     async def get_tonality_pie_chart(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,
         start_date2: str, end_date2: str, source: Optional[str] = None
@@ -1231,19 +1229,19 @@ class StatsService:
         agg_date = func.date_trunc(date_trunc, Review.date).label("agg_date")
         period1_query = select(
             agg_date,
-            Review.sentiment,
+            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             and_(
                 ReviewProduct.product_id.in_(product_ids),
                 Review.date >= start_date_parsed,
                 Review.date <= end_date_parsed,
-                Review.sentiment.isnot(None)
+                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
             )
         )
         if source:
             period1_query = period1_query.where(Review.source == source)
-        period1_query = period1_query.group_by(agg_date, Review.sentiment).order_by(agg_date)
+        period1_query = period1_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
         period1_result = await session.execute(period1_query)
         period1_data_raw = period1_result.all()
 
@@ -1256,19 +1254,19 @@ class StatsService:
 
         period2_query = select(
             agg_date,
-            Review.sentiment,
+            ReviewProduct.sentiment,  # Используем ReviewProduct.sentiment вместо Review.sentiment
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             and_(
                 ReviewProduct.product_id.in_(product_ids),
                 Review.date >= start_date2_parsed,
                 Review.date <= end_date2_parsed,
-                Review.sentiment.isnot(None)
+                ReviewProduct.sentiment.isnot(None)  # Используем ReviewProduct.sentiment
             )
         )
         if source:
             period2_query = period2_query.where(Review.source == source)
-        period2_query = period2_query.group_by(agg_date, Review.sentiment).order_by(agg_date)
+        period2_query = period2_query.group_by(agg_date, ReviewProduct.sentiment).order_by(agg_date)
         period2_result = await session.execute(period2_query)
         period2_data_raw = period2_result.all()
 
@@ -1426,13 +1424,14 @@ class StatsService:
     async def get_reviews(
         self, session: AsyncSession, product_id: int, start_date: Optional[date] = None, 
         end_date: Optional[date] = None, cluster_id: Optional[int] = None, 
-        source: Optional[str] = None, order_by: str = "desc", page: int = 0, size: int = 30
+        source: Optional[str] = None, sentiment: Optional[str] = None,
+        order_by: str = "desc", page: int = 0, size: int = 30
     ) -> Dict[str, Any]:
         import logging
         logging.basicConfig(level=logging.DEBUG)
         logger = logging.getLogger(__name__)
 
-        logger.debug(f"Fetching reviews for product_id={product_id}, cluster_id={cluster_id}, source={source}, start_date={start_date}, end_date={end_date}, order_by={order_by}, page={page}, size={size}")
+        logger.debug(f"Fetching reviews for product_id={product_id}, cluster_id={cluster_id}, source={source}, sentiment={sentiment}, start_date={start_date}, end_date={end_date}, order_by={order_by}, page={page}, size={size}")
 
         if order_by not in ["asc", "desc"]:
             raise ValueError("order_by должен быть 'asc' или 'desc'")
@@ -1448,6 +1447,7 @@ class StatsService:
         else:
             product_ids = [product_id]
 
+        # Подсчет общего количества с фильтрацией
         count_statement = select(func.count(func.distinct(Review.id))).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
 
         if start_date:
@@ -1456,6 +1456,8 @@ class StatsService:
             count_statement = count_statement.where(Review.date <= end_date)
         if source:
             count_statement = count_statement.where(Review.source == source)
+        if sentiment:  # Фильтр по тональности из review_products
+            count_statement = count_statement.where(ReviewProduct.sentiment == sentiment)
         if cluster_id:
             count_statement = count_statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
 
@@ -1463,60 +1465,79 @@ class StatsService:
         total_count = count_result.scalar() or 0
         logger.debug(f"Total reviews count: {total_count}")
 
+        # Получение отзывов с фильтрацией
         statement = select(Review).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
 
         if start_date:
             statement = statement.where(Review.date >= start_date)
         if end_date:
             statement = statement.where(Review.date <= end_date)
-
         if source:
             statement = statement.where(Review.source == source)
-            logger.debug(f"Filtering by source: {source}")
-
+        if sentiment:  # Фильтр по тональности из review_products
+            statement = statement.where(ReviewProduct.sentiment == sentiment)
         if cluster_id:
-            cluster = await self._cluster_repo.get_by_id(session, cluster_id)
-            if not cluster:
-                logger.warning(f"Cluster with ID {cluster_id} not found")
-                return {"total": 0, "reviews": []}
             statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
-            logger.debug(f"Filtering by cluster ID: {cluster_id}")
 
         if order_by == "asc":
             statement = statement.order_by(Review.date.asc())
         else:
             statement = statement.order_by(Review.date.desc())
         
-        logger.debug(f"Sorting by date: {order_by}")
-
         statement = statement.offset(page * size).limit(size)
 
         result = await session.execute(statement)
         reviews = result.scalars().all()
         logger.debug(f"Retrieved {len(reviews)} reviews for page {page}")
 
+        # Получаем информацию о продуктах и тональностях для каждого отзыва
         review_ids = [r.id for r in reviews]
-        product_ids_query = select(ReviewProduct.review_id, ReviewProduct.product_id).where(ReviewProduct.review_id.in_(review_ids))
-        product_ids_result = await session.execute(product_ids_query)
+        product_info_query = select(
+            ReviewProduct.review_id, 
+            ReviewProduct.product_id,
+            ReviewProduct.sentiment,
+            ReviewProduct.sentiment_score
+        ).where(ReviewProduct.review_id.in_(review_ids))
+        
+        product_info_result = await session.execute(product_info_query)
         review_product_map = {}
-        for row in product_ids_result:
-            review_id, prod_id = row
+        for row in product_info_result:
+            review_id, prod_id, sentiment, sentiment_score = row
             if review_id not in review_product_map:
-                review_product_map[review_id] = []
-            review_product_map[review_id].append(prod_id)
+                review_product_map[review_id] = {
+                    'product_ids': [],
+                    'sentiments': []
+                }
+            review_product_map[review_id]['product_ids'].append(prod_id)
+            if sentiment:  # Добавляем тональность только если она есть
+                review_product_map[review_id]['sentiments'].append({
+                    'product_id': prod_id,
+                    'sentiment': sentiment,
+                    'sentiment_score': sentiment_score
+                })
 
         reviews_result = []
         for review in reviews:
+            review_info = review_product_map.get(review.id, {'product_ids': [], 'sentiments': []})
+            
+            # Определяем основную тональность отзыва (берем первую из списка)
+            main_sentiment = None
+            main_sentiment_score = None
+            if review_info['sentiments']:
+                main_sentiment = review_info['sentiments'][0]['sentiment']
+                main_sentiment_score = review_info['sentiments'][0]['sentiment_score']
+            
             review_dict = {
                 "id": review.id,
                 "text": review.text,
                 "date": review.date,
                 "rating": review.rating,
-                "sentiment": review.sentiment,
-                "sentiment_score": review.sentiment_score,
+                "sentiment": main_sentiment,  # Основная тональность (для обратной совместимости)
+                "sentiment_score": main_sentiment_score,  # Основной sentiment_score
                 "source": review.source,
                 "created_at": review.created_at,
-                "product_ids": review_product_map.get(review.id, [])
+                "product_ids": review_info['product_ids'],
+                "product_sentiments": review_info['sentiments']  # Новое поле с тональностями по продуктам
             }
             reviews_result.append(review_dict)
         
@@ -1571,8 +1592,6 @@ class StatsService:
             logger.error(f"Error creating reviews for model: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error creating reviews for model processing: {str(e)}")
 
-        
-    
     async def get_unprocessed_reviews_for_model(
         self, session: AsyncSession, limit: int = 100
     ) -> List[Dict[str, Any]]:
@@ -1592,4 +1611,4 @@ class StatsService:
 
     def _get_color_for_cluster(self, cluster_id: int) -> str:
         colors = ["blue", "cyan", "pink", "purple", "green"]
-        return colors[cluster_id % len(colors)]
+        return colors[cluster_id % len(colors)] 
