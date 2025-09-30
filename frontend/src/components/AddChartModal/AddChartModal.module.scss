@@ -263,3 +263,100 @@
         }
     }
 }
+
+// Стили для компонентов фильтра
+.filterContainer {
+    position: relative;
+    width: 100%;
+}
+
+.filterButton {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: vars.$color-white;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+    font-family: vars.$font-family-base;
+    font-size: vars.$font-size-md;
+
+    &:hover {
+        border-color: vars.$color-primary;
+    }
+
+    &.open {
+        border-color: vars.$color-primary;
+        box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.2);
+    }
+}
+
+.filterText {
+    color: vars.$color-text-dark;
+}
+
+.iconWrapper {
+    display: flex;
+    align-items: center;
+}
+
+.arrowIcon {
+    color: #999;
+    transition: transform 0.2s ease;
+    font-size: 12px;
+
+    .filterButton.open & {
+        transform: rotate(180deg);
+    }
+}
+
+.dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: vars.$color-white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.itemsList {
+    display: flex;
+    flex-direction: column;
+}
+
+.itemButton {
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s ease;
+    font-family: vars.$font-family-base;
+    font-size: vars.$font-size-md;
+
+    &:hover {
+        background: rgba(vars.$color-primary, 0.08);
+    }
+
+    &.selected {
+        background: rgba(vars.$color-primary, 0.12);
+        color: vars.$color-primary;
+        font-weight: vars.$font-weight-medium;
+    }
+}
+
+.itemName {
+    color: vars.$color-text-dark;
+
+    .itemButton.selected & {
+        color: vars.$color-primary;
+    }
+}

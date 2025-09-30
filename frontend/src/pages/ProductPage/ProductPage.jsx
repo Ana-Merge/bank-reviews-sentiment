@@ -123,14 +123,14 @@ const ProductPage = () => {
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label>Источник:</label>
+                            <label>Источник отзывов:</label>
                             <SourceFilter
                                 source={source}
                                 onSourceChange={(source) => dispatch(setSource(source))}
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label>Группировка:</label>
+                            <label>Группировка на графике:</label>
                             <AggregationFilter
                                 aggregationType={aggregationType}
                                 onAggregationChange={(type) => dispatch(setAggregationType(type))}

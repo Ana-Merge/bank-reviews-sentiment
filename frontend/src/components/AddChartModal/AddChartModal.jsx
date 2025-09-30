@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     DateFilter,
     ProductFilter,
@@ -11,11 +11,82 @@ import tonalityIcon from "../../assets/icons/tonality-chart.png";
 import dynamicsIcon from "../../assets/icons/dynamics-chart.png";
 import generalStatsIcon from "../../assets/icons/general-stats.png";
 
+// Компонент для выбора режима фильтра дат
+const DateModeFilter = ({ dateMode, onDateModeChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleToggle = () => {
+        setIsOpen(!isOpen);
+    };
+
+    const handleModeClick = (newMode) => {
+        onDateModeChange(newMode);
+        setIsOpen(false);
+    };
+
+    const modeOptions = [
+        { value: 'day', label: 'По дням' },
+        { value: 'month', label: 'По месяцам' },
+    ];
+
+    const getDisplayText = () => {
+        const selectedOption = modeOptions.find(opt => opt.value === dateMode);
+        return selectedOption ? selectedOption.label : '';
+    };
+
+    return (
+        <div className={styles.filterContainer} ref={dropdownRef}>
+            <button
+                className={`${styles.filterButton} ${isOpen ? styles.open : ""}`}
+                onClick={handleToggle}
+                type="button"
+            >
+                <span className={styles.filterText}>
+                    {getDisplayText()}
+                </span>
+                <div className={styles.iconWrapper}>
+                    <span className={styles.arrowIcon}>&#9660;</span>
+                </div>
+            </button>
+            {isOpen && (
+                <div className={styles.dropdown}>
+                    <div className={styles.itemsList}>
+                        {modeOptions.map(option => (
+                            <button
+                                key={option.value}
+                                className={`${styles.itemButton} ${dateMode === option.value ? styles.selected : ""}`}
+                                onClick={() => handleModeClick(option.value)}
+                                type="button"
+                            >
+                                <span className={styles.itemName}>{option.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingChart }) => {
     const [chartType, setChartType] = useState('product_stats');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [source, setSource] = useState(null);
     const [aggregationType, setAggregationType] = useState('month');
+    const [dateMode, setDateMode] = useState('day'); // 'day' или 'month'
 
     // Даты по умолчанию
     const [startDate, setStartDate] = useState("2025-03-01");
@@ -26,6 +97,11 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
     const [dateErrors, setDateErrors] = useState({});
     const [isSaving, setIsSaving] = useState(false);
 
+    // Получение типа агрегации для DateFilter
+    const getEffectiveAggregationType = () => {
+        return supportsAggregation(chartType) ? aggregationType : dateMode;
+    };
+
     // Инициализация формы при открытии или изменении editingChart
     useEffect(() => {
         if (isOpen) {
@@ -35,6 +111,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                 setChartType(type);
                 setSource(attributes.source || null);
                 setAggregationType(attributes.aggregation_type || 'month');
+                setDateMode(attributes.date_mode || 'day');
                 setStartDate(attributes.date_start_1);
                 setEndDate(attributes.date_end_1);
                 setStartDate2(attributes.date_start_2);
@@ -67,6 +144,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
         setSelectedProduct(null);
         setSource(null);
         setAggregationType('month');
+        setDateMode('day');
         setStartDate("2025-03-01");
         setEndDate("2025-05-31");
         setStartDate2("2024-12-01");
@@ -100,7 +178,8 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                     product_id: parseInt(selectedProduct.id),
                     product_name: selectedProduct.name,
                     source: source || '',
-                    aggregation_type: supportsAggregation(chartType) ? aggregationType : 'month'
+                    aggregation_type: supportsAggregation(chartType) ? aggregationType : 'month',
+                    date_mode: supportsAggregation(chartType) ? null : dateMode
                 }
             };
 
@@ -192,7 +271,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                         </div>
                     </div>
 
-                    {/* Фильтры продукта, источника и группировки*/}
+                    {/* Фильтры продукта, источника и группировки/фильтра */}
                     <div className={styles.filtersRow}>
                         <div className={styles.filterGroup}>
                             <label className={styles.sectionLabel}>Продукт</label>
@@ -204,23 +283,26 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label className={styles.sectionLabel}>Источник:</label>
+                            <label className={styles.sectionLabel}>Источник отзывов:</label>
                             <SourceFilter
                                 source={source}
                                 onSourceChange={setSource}
                             />
                         </div>
                         <div className={styles.filterGroup}>
-                            <label className={styles.sectionLabel}>Группировка:</label>
+                            <label className={styles.sectionLabel}>
+                                {supportsAggregation(chartType) ? 'Группировка на графике:' : 'Выбор даты:'}
+                            </label>
                             {supportsAggregation(chartType) ? (
                                 <AggregationFilter
                                     aggregationType={aggregationType}
                                     onAggregationChange={setAggregationType}
                                 />
                             ) : (
-                                <div className={styles.aggregationPlaceholder}>
-                                    Недоступно для этого типа графика
-                                </div>
+                                <DateModeFilter
+                                    dateMode={dateMode}
+                                    onDateModeChange={setDateMode}
+                                />
                             )}
                         </div>
                     </div>
@@ -238,7 +320,7 @@ const AddChartModal = ({ isOpen, onClose, onSave, productTree, token, editingCha
                             onStartDate2Change={setStartDate2}
                             onEndDate2Change={setEndDate2}
                             selectedProduct={selectedProduct}
-                            aggregationType={aggregationType}
+                            aggregationType={getEffectiveAggregationType()}
                             onDateErrorsChange={setDateErrors}
                         />
                     </div>

@@ -10,7 +10,6 @@ const DateFilter = ({
     onEndDateChange,
     onStartDate2Change,
     onEndDate2Change,
-    selectedProduct,
     aggregationType,
     onDateErrorsChange
 }) => {
@@ -126,7 +125,6 @@ const DateFilter = ({
 
     const validateDateRange = (start, end, type, fieldPrefix, isPeriod2 = false) => {
         const newErrors = { ...errors };
-        const minMax = getMinMaxForAggregation(type);
 
         if (start && !isValidDateForAggregation(start, type)) {
             newErrors[`${fieldPrefix}Start`] = `Дата выходит за пределы доступного периода`;
@@ -163,6 +161,13 @@ const DateFilter = ({
 
     const getInputType = () => {
         return aggregationType === 'month' ? 'month' : 'date';
+    };
+
+    const getDateRangeInfoText = () => {
+        if (aggregationType === 'month') {
+            return `Доступный период: 01.01.2024 – 31.05.2025 (выбор по месяцам)`;
+        }
+        return `Доступный период: 01.01.2024 – 31.05.2025`;
     };
 
     useEffect(() => {
@@ -290,7 +295,7 @@ const DateFilter = ({
             )}
 
             <div className={styles.dateRangeInfo}>
-                Доступный период: 01.01.2024 – 31.05.2025
+                {getDateRangeInfoText()}
             </div>
         </div>
     );
