@@ -1427,21 +1427,20 @@ class StatsService:
         self, session: AsyncSession, product_id: int, start_date: Optional[date] = None, 
         end_date: Optional[date] = None, cluster_id: Optional[int] = None, 
         source: Optional[str] = None, order_by: str = "desc", page: int = 0, size: int = 30
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         import logging
         logging.basicConfig(level=logging.DEBUG)
         logger = logging.getLogger(__name__)
 
         logger.debug(f"Fetching reviews for product_id={product_id}, cluster_id={cluster_id}, source={source}, start_date={start_date}, end_date={end_date}, order_by={order_by}, page={page}, size={size}")
 
-        # Валидация параметра order_by
         if order_by not in ["asc", "desc"]:
             raise ValueError("order_by должен быть 'asc' или 'desc'")
 
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
             logger.warning(f"Product with ID {product_id} not found")
-            return []
+            return {"total": 0, "reviews": []}
 
         if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
             descendants = await self._product_repo.get_all_descendants(session, product_id)
@@ -1449,29 +1448,40 @@ class StatsService:
         else:
             product_ids = [product_id]
 
+        count_statement = select(func.count(func.distinct(Review.id))).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
+
+        if start_date:
+            count_statement = count_statement.where(Review.date >= start_date)
+        if end_date:
+            count_statement = count_statement.where(Review.date <= end_date)
+        if source:
+            count_statement = count_statement.where(Review.source == source)
+        if cluster_id:
+            count_statement = count_statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
+
+        count_result = await session.execute(count_statement)
+        total_count = count_result.scalar() or 0
+        logger.debug(f"Total reviews count: {total_count}")
+
         statement = select(Review).join(ReviewProduct).where(ReviewProduct.product_id.in_(product_ids))
 
-        # Фильтр по дате
         if start_date:
             statement = statement.where(Review.date >= start_date)
         if end_date:
             statement = statement.where(Review.date <= end_date)
 
-        # Фильтр по источнику
         if source:
             statement = statement.where(Review.source == source)
             logger.debug(f"Filtering by source: {source}")
 
-        # Фильтр по кластеру
         if cluster_id:
             cluster = await self._cluster_repo.get_by_id(session, cluster_id)
             if not cluster:
                 logger.warning(f"Cluster with ID {cluster_id} not found")
-                return []
+                return {"total": 0, "reviews": []}
             statement = statement.join(ReviewCluster).where(ReviewCluster.cluster_id == cluster_id)
             logger.debug(f"Filtering by cluster ID: {cluster_id}")
 
-        # Сортировка по дате
         if order_by == "asc":
             statement = statement.order_by(Review.date.asc())
         else:
@@ -1479,14 +1489,12 @@ class StatsService:
         
         logger.debug(f"Sorting by date: {order_by}")
 
-        # Пагинация
         statement = statement.offset(page * size).limit(size)
 
         result = await session.execute(statement)
         reviews = result.scalars().all()
-        logger.debug(f"Retrieved {len(reviews)} reviews")
+        logger.debug(f"Retrieved {len(reviews)} reviews for page {page}")
 
-        # Получаем product_ids для каждого отзыва
         review_ids = [r.id for r in reviews]
         product_ids_query = select(ReviewProduct.review_id, ReviewProduct.product_id).where(ReviewProduct.review_id.in_(review_ids))
         product_ids_result = await session.execute(product_ids_query)
@@ -1497,8 +1505,7 @@ class StatsService:
                 review_product_map[review_id] = []
             review_product_map[review_id].append(prod_id)
 
-        # Формируем результат
-        result = []
+        reviews_result = []
         for review in reviews:
             review_dict = {
                 "id": review.id,
@@ -1511,10 +1518,14 @@ class StatsService:
                 "created_at": review.created_at,
                 "product_ids": review_product_map.get(review.id, [])
             }
-            result.append(review_dict)
+            reviews_result.append(review_dict)
         
-        logger.debug(f"Final result: {len(result)} reviews")
-        return result
+        logger.debug(f"Final result: total={total_count}, reviews={len(reviews_result)}")
+        
+        return {
+            "total": total_count,
+            "reviews": reviews_result
+        }
 
     async def create_reviews_bulk(
         self, session: AsyncSession, reviews_data: ReviewBulkCreate
@@ -1529,12 +1540,10 @@ class StatsService:
         
         reviews_for_model = [
             ReviewsForModel(
-                review_text=item.text,  # Используем review_text вместо text
-                # Обязательные поля для ReviewsForModel
+                review_text=item.text,
                 bank_name="manual_input",
                 bank_slug="manual",
                 product_name="general",
-                # Опциональные поля
                 review_theme="",
                 rating="",
                 verification_status="",
@@ -1543,7 +1552,6 @@ class StatsService:
                 source_url="",
                 parsed_at=current_time,
                 processed=False,
-                # Убираем поле text, так как его нет в модели
             ) for item in reviews_data.data
         ]
 

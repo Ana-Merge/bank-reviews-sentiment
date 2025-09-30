@@ -1,4 +1,3 @@
-# models.py
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, Date, Float, Boolean, JSON, Text,
     CheckConstraint, Enum, TIMESTAMP, Index, DateTime
@@ -223,7 +222,6 @@ class NotificationConfig(Base):
     user = relationship("User")
     product = relationship("Product")
 
-# models.py - обновите поле review_theme
 class ReviewsForModel(Base):
     """Модель для хранения сырых данных отзывов из парсеров"""
     
@@ -233,7 +231,7 @@ class ReviewsForModel(Base):
     bank_name: Mapped[str] = mapped_column(String(100), nullable=True)
     bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)
     product_name: Mapped[str] = mapped_column(String(100), nullable=True)
-    review_theme: Mapped[str] = mapped_column(String(500), nullable=True)  # Увеличил с 200 до 500
+    review_theme: Mapped[str] = mapped_column(String(500), nullable=True)
     rating: Mapped[str] = mapped_column(String(20), nullable=True)
     verification_status: Mapped[str] = mapped_column(String(100), nullable=True)
     review_text: Mapped[str] = mapped_column(Text, nullable=False)

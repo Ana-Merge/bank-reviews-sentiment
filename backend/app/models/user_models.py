@@ -1,4 +1,3 @@
-# user_models.py
 from enum import Enum
 from sqlalchemy import CheckConstraint, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column

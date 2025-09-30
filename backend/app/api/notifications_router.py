@@ -1,4 +1,3 @@
-# notifications_router.py
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List, Dict, Any
 from datetime import date

@@ -1,4 +1,3 @@
-# user_repositories.py
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Dict, Any, List
@@ -41,6 +40,20 @@ class UserRepository:
         statement = select(User).where(User.username == username)
         result = await session.execute(statement)
         return result.scalar_one_or_none()
+    
+    async def get_all_users(self, session: AsyncSession) -> List[User]:
+        """
+        Получить всех пользователей системы
+        
+        Args:
+            session: Асинхронная сессия базы данных
+            
+        Returns:
+            List[User]: Список всех пользователей
+        """
+        statement = select(User).order_by(User.username)
+        result = await session.execute(statement)
+        return result.scalars().all()
     
     async def get_dashboard_config(self, session: AsyncSession, user_id: int) -> Optional[Dict[str, Any]]:
         """

@@ -49,6 +49,19 @@ class Config:
         date: lambda v: v.isoformat()
     }
 
+class UserConfigResponse(BaseModel):
+    id: int
+    username: str
+    role: UserRole
+    dashboard_config: Optional[DashboardConfig] = None
+
+class UsersListResponse(BaseModel):
+    users: List[UserConfigResponse]
+    
+    class Config:
+        from_attributes = True
+
+
 class LoginCredentials(BaseModel):
     username: NonEmptyStr
     password: NonEmptyStr

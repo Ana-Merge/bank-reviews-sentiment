@@ -1,4 +1,3 @@
-# get_all_reviews.py
 import requests
 import json
 import time

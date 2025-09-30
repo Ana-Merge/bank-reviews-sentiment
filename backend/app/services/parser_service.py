@@ -38,8 +38,6 @@ class ParserService:
 
             # Запускаем парсер в отдельном потоке
             parsed_data = await asyncio.to_thread(self._run_sync_parser, config)
-            
-            # Сохраняем данные в базу
             total_saved = 0
             for product, reviews in parsed_data.items():
                 if reviews:
@@ -118,12 +116,10 @@ class ParserService:
                     "message": "No unprocessed reviews found for specified bank and product"
                 }
             
-            # Репозитории для работы с основными таблицами
             from app.repositories.repositories import ProductRepository, ReviewRepository
             product_repo = ProductRepository()
             review_repo = ReviewRepository()
             
-            # Получаем или создаем продукт
             product = await product_repo.get_by_name(session, product_name)
             products_created = 0
             
@@ -150,18 +146,14 @@ class ParserService:
                     if rating == 0:
                         continue
                     
-                    # Определяем тональность
                     sentiment = self._determine_sentiment(rating)
                     
-                    # Парсим дату
                     review_date = self._parse_review_date(parsed_review.review_date)
                     if not review_date:
                         continue
                     
-                    # Определяем источник из URL
                     source = self._parse_source_from_url(parsed_review.source_url)
                     
-                    # Создаем отзыв для основной таблицы
                     from app.models.models import Review
                     review = Review(
                         text=parsed_review.review_text,
@@ -172,10 +164,7 @@ class ParserService:
                         source=source
                     )
                     
-                    # Сохраняем отзыв
                     saved_review = await review_repo.save(session, review)
-                    
-                    # Добавляем связь с продуктом
                     await review_repo.add_products_to_review(
                         session, saved_review.id, [product.id]
                     )
@@ -187,7 +176,6 @@ class ParserService:
                     logger.error(f"Error processing review {parsed_review.id}: {str(e)}")
                     continue
             
-            # Помечаем отзывы как обработанные
             if mark_processed and review_ids_to_mark:
                 await self._reviews_for_model_repo.mark_bulk_as_processed(
                     session, review_ids_to_mark
@@ -216,16 +204,13 @@ class ParserService:
             return "unknown"
         
         try:
-            # Приводим к нижнему регистру для удобства сравнения
             url_lower = url.lower()
             
-            # Проверяем наличие ключевых слов в URL
             if 'banki.ru' in url_lower:
                 return "Banki.ru"
             elif 'sravni.ru' in url_lower:
                 return "Sravni.ru"
             else:
-                # Если не нашли известные источники, возвращаем домен
                 from urllib.parse import urlparse
                 parsed_url = urlparse(url)
                 domain = parsed_url.netloc
@@ -245,17 +230,14 @@ class ParserService:
         try:
             import re
             
-            # Удаляем лишние слова и символы
             cleaned_rating = rating_str.lower()
-            cleaned_rating = re.sub(r'[зз]в[её]зд?', '', cleaned_rating)  # удаляем "звезд", "звёзд" (для Sravni)
-            cleaned_rating = re.sub(r'[^0-9/]', '', cleaned_rating)  # оставляем только цифры и /
+            cleaned_rating = re.sub(r'[зз]в[её]зд?', '', cleaned_rating) 
+            cleaned_rating = re.sub(r'[^0-9/]', '', cleaned_rating)
             
-            # Извлекаем первое число
             numbers = re.findall(r'\d+', cleaned_rating)
             if numbers:
                 rating = int(numbers[0])
-                # Если рейтинг в формате "5/5", берем первое число
-                return min(rating, 5)  # ограничиваем максимальным рейтингом 5
+                return min(rating, 5)
             return 0
         except (ValueError, TypeError):
             return 0
@@ -268,7 +250,6 @@ class ParserService:
             if not date_str:
                 return None
                 
-            # Пробуем разные форматы дат
             date_formats = [
                 '%d.%m.%Y %H:%M',     # 01.01.2023 14:30 (Banki.ru)
                 '%d.%m.%Y',           # 01.01.2023
@@ -283,7 +264,6 @@ class ParserService:
                 except ValueError:
                     continue
             
-            # Если стандартные форматы не сработали, пробуем извлечь дату из строки
             import re
             date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', date_str)
             if date_match:
@@ -306,7 +286,7 @@ class ParserService:
         elif rating >= 1:
             return "negative"
         else:
-            return "neutral"  # fallback
+            return "neutral"
 
     def _calculate_sentiment_score(self, sentiment: str) -> float:
         """Рассчитывает числовой score тональности"""

@@ -1,4 +1,3 @@
-# dashboards.py
 from typing import Annotated, List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +5,7 @@ from sqlalchemy import select
 from datetime import date
 from pydantic import BaseModel
 from app.models.user_models import User
-from app.schemas.schemas import ProductTreeNode, ReviewResponse, ReviewBulkCreate, ChangeChartResponse
+from app.schemas.schemas import ProductTreeNode, ReviewResponse, ReviewBulkCreate, ChangeChartResponse, ReviewsResponse
 from app.repositories.repositories import ProductRepository, ClusterRepository, ReviewsForModelRepository
 from app.models.models import Product
 from app.services.parser_service import ParserService
@@ -386,7 +385,7 @@ async def get_change_chart(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при получении графика изменений: {str(e)}")
     
-@dashboards_router.get("/reviews", response_model=List[ReviewResponse])
+@dashboards_router.get("/reviews", response_model=ReviewsResponse)
 async def get_reviews(
     db: DbSession,
     stats_service: StatsServiceDep,
@@ -412,29 +411,30 @@ async def get_reviews(
       - `order_by`: Сортировка по дате (опционально, 'asc' для возрастания или 'desc' для убывания, по умолчанию 'desc').
       - `page`: Номер страницы (опционально, по умолчанию 0).
       - `size`: Количество отзывов на странице (опционально, по умолчанию 30, максимум 100).
-    - **Тело запроса**: Не требуется (GET-запрос).
 
     **Что получите в ответе**:
-    - **Код 200 OK**: Список объектов отзывов (массив объектов `ReviewResponse`).
+    - **Код 200 OK**: Объект с общим количеством отзывов и списком отзывов на текущей странице.
       - **Формат JSON**:
         ```json
-        [
-          {
-            "id": 1,
-            "text": "Отличный продукт!",
-            "date": "2025-01-15",
-            "product_ids": [3],
-            "rating": 5,
-            "sentiment": "positive",
-            "sentiment_score": 0.9,
-            "source": "Banki.ru",
-            "created_at": "2025-01-15T10:30:00"
-          }
-        ]
+        {
+          "total": 150,
+          "reviews": [
+            {
+              "id": 1,
+              "text": "Отличный продукт!",
+              "date": "2025-01-15",
+              "product_ids": [3],
+              "rating": 5,
+              "sentiment": "positive",
+              "sentiment_score": 0.9,
+              "source": "Banki.ru",
+              "created_at": "2025-01-15T10:30:00"
+            }
+          ]
+        }
         ```
     """
     try:
-        # Валидация параметра order_by
         if order_by not in ["asc", "desc"]:
             raise HTTPException(status_code=400, detail="order_by must be 'asc' or 'desc'")
             

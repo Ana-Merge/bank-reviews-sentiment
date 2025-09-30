@@ -1,4 +1,3 @@
-# dependencies.py
 from typing import Annotated, AsyncGenerator
 from fastapi import Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

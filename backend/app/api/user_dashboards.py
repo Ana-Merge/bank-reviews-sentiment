@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, get_current_user
-from app.models.user_models import User
-from app.schemas.auth_schema import DashboardConfig, PageConfig
+from app.models.user_models import User, UserRole  
+from app.schemas.auth_schema import DashboardConfig, PageConfig, UsersListResponse, UserConfigResponse
 from app.repositories.user_repositories import UserRepository
 from app.core.exceptions import EntityAlreadyExistsException
 from typing import Dict, Any
@@ -33,6 +33,51 @@ async def get_dashboard_config(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Неправильный формат конфига: {str(e)}")
 
+@user_dashboard_router.get(
+    "/users",
+    response_model=UsersListResponse,
+    summary="Получить список всех пользователей и их конфигураций",
+    description="Получение списка всех пользователей системы с их конфигурациями дашбордов.",
+    response_description="Список пользователей с конфигурациями.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_all_users_with_configs(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(lambda: UserRepository())
+):
+    """
+    Получить список всех пользователей и их конфигураций дашбордов.
+    """
+
+    try:
+        users = await user_repo.get_all_users(db)
+        
+        users_response = []
+        for user in users:
+            dashboard_config = None
+            if user.dashboard_config:
+                try:
+                    dashboard_config = DashboardConfig(**user.dashboard_config)
+                except ValueError:
+                    dashboard_config = None
+            
+            user_response = UserConfigResponse(
+                id=user.id,
+                username=user.username,
+                role=user.role,
+                dashboard_config=dashboard_config
+            )
+            users_response.append(user_response)
+        
+        return UsersListResponse(users=users_response)
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при получении списка пользователей: {str(e)}"
+        )
+    
 @user_dashboard_router.post(
     "/config",
     response_model=Dict[str, str],

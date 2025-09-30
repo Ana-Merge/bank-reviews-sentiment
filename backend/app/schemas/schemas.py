@@ -105,6 +105,13 @@ class ReviewResponse(ReviewBase):
     class Config:
         from_attributes = True
 
+class ReviewsResponse(BaseModel):
+    total: int
+    reviews: List[ReviewResponse]
+    
+    class Config:
+        from_attributes = True
+
 class ClusterBase(BaseModel):
     name: NonEmptyStr
 

@@ -49,7 +49,6 @@ class BankiRuParser:
         from app.core.try_to_surf import try_to_surf as original_try_to_surf
         return original_try_to_surf(context, url, wait_class)
 
-    # banki_parser.py - обновите метод get_reviews_page
     def get_reviews_page(self, context, bank_slug: str, product: str, page_num: int) -> List[Dict]:
         """Получает отзывы с одной страницы"""
         url = f'{self.base_url}{bank_slug}/product/{product}/?page={page_num}&type=all&bank={bank_slug}'

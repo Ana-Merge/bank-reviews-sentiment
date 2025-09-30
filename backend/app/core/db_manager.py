@@ -1,4 +1,3 @@
-# db_manager.py
 import logging
 from contextlib import asynccontextmanager
 
@@ -40,7 +39,6 @@ class DatabaseManager:
             )
             raise
 
-        # Импорт моделей для создания таблиц
         from app.models.user_models import User
         from app.models.models import (
             Product, Review, Cluster, ReviewCluster, MonthlyStats, ClusterStats,
@@ -49,12 +47,10 @@ class DatabaseManager:
 
         async with self._engine.begin() as connection:
             try:
-                # Проверка существующих таблиц
                 existing_tables = await connection.run_sync(
                     lambda conn: conn.dialect.get_table_names(conn)
                 )
                 if not existing_tables:
-                    # Создание таблиц если они не существуют
                     await connection.run_sync(Base.metadata.create_all)
                     logging.info("Таблицы базы данных успешно созданы")
                 else:
