@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, Date, Float, Boolean, JSON, Text,
-    CheckConstraint, Enum, TIMESTAMP, Index
+    CheckConstraint, Enum, TIMESTAMP, Index, DateTime
 )
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,33 +10,55 @@ from datetime import date, datetime
 from app.core.db_manager import Base
 from app.models.user_models import UserRole
 
-# Enums
 class ProductType(str, Enum):
+    """Типы продуктов в иерархии"""
     CATEGORY = "category"
     SUBCATEGORY = "subcategory"
     SUBTYPE = "subtype"
     PRODUCT = "product"
 
 class ClientType(str, Enum):
+    """Типы клиентов"""
     INDIVIDUAL = "individual"
     BUSINESS = "business"
     BOTH = "both"
 
 class Sentiment(str, Enum):
+    """Тональности отзывов"""
     POSITIVE = "positive"
     NEUTRAL = "neutral"
     NEGATIVE = "negative"
 
 class NotificationType(str, Enum):
+    """Типы уведомлений"""
     REVIEW_SPIKE = "review_spike"  # Увеличение отзывов > threshold%
     SENTIMENT_DECLINE = "sentiment_decline"  # Падение позитивной тональности > threshold%
     RATING_DROP = "rating_drop"  # Падение среднего рейтинга > threshold
     NEGATIVE_SPIKE = "negative_spike"  # Увеличение негативных отзывов > threshold%
-    CLUSTER_ALERT = "cluster_alert"  # Изменение в конкретном кластере (нужен доп. cluster_id)
-    # Add other types as needed
+    CLUSTER_ALERT = "cluster_alert"  # Изменение в конкретном кластере
 
-# Product Model
+class ReviewProduct(Base):
+    """Связующая таблица между отзывами и продуктами (многие-ко-многим)"""
+    
+    __tablename__ = "review_products"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    review_id: Mapped[int] = mapped_column(ForeignKey("reviews.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    sentiment: Mapped[Optional[Sentiment]] = mapped_column(String(20))
+    sentiment_score: Mapped[Optional[float]] = mapped_column(Float)
+
+    __table_args__ = (
+        CheckConstraint("sentiment IN ('positive', 'neutral', 'negative')"),
+        CheckConstraint("sentiment_score BETWEEN -1 AND 1"),
+        Index("idx_review_products_review_id", "review_id"),
+        Index("idx_review_products_product_id", "product_id"),
+        Index("idx_review_products_sentiment", "sentiment"),
+    )
+
 class Product(Base):
+    """Модель продукта/категории"""
+    
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -56,40 +78,37 @@ class Product(Base):
         Index("idx_products_client_type", "client_type"),
     )
 
-    # Relationships
+    reviews = relationship("Review", secondary="review_products", back_populates="products")
     parent = relationship("Product", remote_side=[id], back_populates="children")
     children = relationship("Product", back_populates="parent")
 
-# Review Model
 class Review(Base):
+    """Модель отзыва"""
+    
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=True)
     rating: Mapped[Optional[int]] = mapped_column(Integer)
     sentiment: Mapped[Optional[Sentiment]] = mapped_column(String(20))
     sentiment_score: Mapped[Optional[float]] = mapped_column(Float)
     source: Mapped[Optional[str]] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
+    products = relationship("Product", secondary="review_products", back_populates="reviews")
+    clusters = relationship("ReviewCluster", back_populates="review")
     __table_args__ = (
         CheckConstraint("rating BETWEEN 1 AND 5"),
         CheckConstraint("sentiment IN ('positive', 'neutral', 'negative')"),
         CheckConstraint("sentiment_score BETWEEN -1 AND 1"),
         Index("idx_reviews_date", "date"),
-        Index("idx_reviews_product_id", "product_id"),
         Index("idx_reviews_sentiment", "sentiment"),
-        # Note: GIN index for text requires PostgreSQL-specific configuration, handled in DB creation
     )
 
-    # Relationships
-    product = relationship("Product")
-    clusters = relationship("ReviewCluster", back_populates="review")
-
-# Cluster Model
 class Cluster(Base):
+    """Модель кластера/темы отзывов"""
+    
     __tablename__ = "clusters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -97,11 +116,11 @@ class Cluster(Base):
     keywords: Mapped[Optional[dict]] = mapped_column(JSON)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Relationships
     review_clusters = relationship("ReviewCluster", back_populates="cluster")
 
-# ReviewCluster Model
 class ReviewCluster(Base):
+    """Связующая таблица между отзывами и кластерами"""
+    
     __tablename__ = "review_clusters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -118,12 +137,12 @@ class ReviewCluster(Base):
         Index("idx_review_clusters_cluster_id", "cluster_id"),
     )
 
-    # Relationships
     review = relationship("Review", back_populates="clusters")
     cluster = relationship("Cluster", back_populates="review_clusters")
 
-# MonthlyStats Model
 class MonthlyStats(Base):
+    """Модель месячной статистики по продуктам"""
+    
     __tablename__ = "monthly_stats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -142,11 +161,11 @@ class MonthlyStats(Base):
         Index("idx_monthly_stats_month", "month"),
     )
 
-    # Relationships
     product = relationship("Product")
 
-# ClusterStats Model
 class ClusterStats(Base):
+    """Модель статистики по кластерам"""
+    
     __tablename__ = "cluster_stats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -164,12 +183,12 @@ class ClusterStats(Base):
         Index("idx_cluster_stats_product_id", "product_id"),
     )
 
-    # Relationships
     cluster = relationship("Cluster")
     product = relationship("Product")
 
-# Notification Model
 class Notification(Base):
+    """Модель уведомлений для пользователей"""
+    
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -183,19 +202,19 @@ class Notification(Base):
         Index("idx_notifications_user_id", "user_id"),
         Index("idx_notifications_type", "type"),
     )
-
-    # Relationships
     user = relationship("User")
 
 class NotificationConfig(Base):
+    """Модель конфигурации уведомлений"""
+    
     __tablename__ = "notification_configs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     notification_type: Mapped[NotificationType] = mapped_column(String(50), nullable=False)
-    threshold: Mapped[float] = mapped_column(Float, nullable=False)  # e.g., 20.0 for 20% change
-    period: Mapped[str] = mapped_column(String(20), default="monthly")  # monthly/weekly/daily
+    threshold: Mapped[float] = mapped_column(Float, nullable=False) 
+    period: Mapped[str] = mapped_column(String(20), default="monthly")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
@@ -205,12 +224,41 @@ class NotificationConfig(Base):
         CheckConstraint("period IN ('daily', 'weekly', 'monthly')"),
     )
 
-    # Relationships
     user = relationship("User")
     product = relationship("Product")
 
-# AuditLog Model
+class ReviewsForModel(Base):
+    """Модель для хранения сырых данных отзывов из парсеров"""
+    
+    __tablename__ = "reviews_for_model"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    bank_name: Mapped[str] = mapped_column(String(100), nullable=True)
+    bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)
+    product_name: Mapped[str] = mapped_column(String(100), nullable=True)
+    review_theme: Mapped[str] = mapped_column(String(500), nullable=True)
+    rating: Mapped[str] = mapped_column(String(20), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(100), nullable=True)
+    review_text: Mapped[str] = mapped_column(Text, nullable=False)
+    review_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    review_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    parsed_at: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    additional_data: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    __table_args__ = (
+        Index("idx_reviews_for_model_parsed_at", "parsed_at"),
+        Index("idx_reviews_for_model_processed", "processed"),
+        Index("idx_reviews_for_model_bank_slug", "bank_slug"),
+        Index("idx_reviews_for_model_product_name", "product_name"),
+        Index("idx_reviews_for_model_review_timestamp", "review_timestamp"),
+        Index("idx_reviews_for_model_bank_product", "bank_slug", "product_name"),
+    )
+
 class AuditLog(Base):
+    """Модель лога аудита действий пользователей"""
+    
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -218,5 +266,4 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(TIMESTAMP, server_default=func.current_timestamp())
 
-    # Relationships
     user = relationship("User")

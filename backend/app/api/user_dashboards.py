@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db, get_current_user
-from app.models.user_models import User
-from app.schemas.auth_schema import DashboardConfig, PageConfig
+from app.models.user_models import User, UserRole  
+from app.schemas.auth_schema import DashboardConfig, PageConfig, UsersListResponse, UserConfigResponse
 from app.repositories.user_repositories import UserRepository
 from app.core.exceptions import EntityAlreadyExistsException
 from typing import Dict, Any
@@ -12,9 +12,9 @@ user_dashboard_router = APIRouter(prefix="/api/v1/user_dashboards", tags=["user_
 @user_dashboard_router.get(
     "/config",
     response_model=DashboardConfig,
-    summary="Get user dashboard configuration",
-    description="Retrieve the dashboard configuration for the authenticated user, including all pages and charts.",
-    response_description="The dashboard configuration as a JSON object."
+    summary="Получить конфиг пользователя",
+    description="Получение конфига авторизованного пользователя, для отображения персональных страниц и графиков.",
+    response_description="Конфиг в формате JSON."
 )
 async def get_dashboard_config(
     current_user: User = Depends(get_current_user),
@@ -31,14 +31,59 @@ async def get_dashboard_config(
         dashboard_config = DashboardConfig(**config)
         return dashboard_config
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid config format: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Неправильный формат конфига: {str(e)}")
 
+@user_dashboard_router.get(
+    "/users",
+    response_model=UsersListResponse,
+    summary="Получить список всех пользователей и их конфигураций",
+    description="Получение списка всех пользователей системы с их конфигурациями дашбордов.",
+    response_description="Список пользователей с конфигурациями.",
+    dependencies=[Depends(get_current_user)]
+)
+async def get_all_users_with_configs(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user_repo: UserRepository = Depends(lambda: UserRepository())
+):
+    """
+    Получить список всех пользователей и их конфигураций дашбордов.
+    """
+
+    try:
+        users = await user_repo.get_all_users(db)
+        
+        users_response = []
+        for user in users:
+            dashboard_config = None
+            if user.dashboard_config:
+                try:
+                    dashboard_config = DashboardConfig(**user.dashboard_config)
+                except ValueError:
+                    dashboard_config = None
+            
+            user_response = UserConfigResponse(
+                id=user.id,
+                username=user.username,
+                role=user.role,
+                dashboard_config=dashboard_config
+            )
+            users_response.append(user_response)
+        
+        return UsersListResponse(users=users_response)
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при получении списка пользователей: {str(e)}"
+        )
+    
 @user_dashboard_router.post(
     "/config",
     response_model=Dict[str, str],
-    summary="Update user dashboard configuration",
-    description="Update the entire dashboard configuration for the authenticated user.",
-    response_description="A success message indicating the configuration was updated.",
+    summary="Обновить кофиг пользователя",
+    description="Обновление конфига пользователя, для авторизованного пользователя.",
+    response_description="success или error",
     responses={
         200: {
             "description": "Configuration updated successfully",
@@ -69,9 +114,9 @@ async def update_dashboard_config(
 @user_dashboard_router.post(
     "/pages",
     response_model=Dict[str, str],
-    summary="Add a new page to dashboard configuration",
-    description="Add a new page with charts to the authenticated user's dashboard configuration.",
-    response_description="A success message indicating the page was added.",
+    summary="Добавить новую страницу в конфиг пользователя",
+    description="Добавление новой страницы в конфиг авторизованного пользователя.",
+    response_description="success  или error",
     responses={
         200: {
             "description": "Page added successfully",
@@ -105,9 +150,9 @@ async def add_dashboard_page(
 @user_dashboard_router.delete(
     "/pages/{page_id}",
     response_model=Dict[str, str],
-    summary="Delete a page from dashboard configuration",
-    description="Remove a specific page from the authenticated user's dashboard configuration by its ID.",
-    response_description="A success message indicating the page was deleted.",
+    summary="Удаление страницы в конфиге пользователя",
+    description="Удаление страницы в конфиге авторизованного пользователя по ID.",
+    response_description="Delete successful или error",
     responses={
         200: {
             "description": "Page deleted successfully",
@@ -137,9 +182,9 @@ async def delete_dashboard_page(
 @user_dashboard_router.delete(
     "/config",
     response_model=Dict[str, str],
-    summary="Clear user dashboard configuration",
-    description="Reset the authenticated user's dashboard configuration to an empty state.",
-    response_description="A success message indicating the configuration was cleared.",
+    summary="Очистка конфига пользователя",
+    description="Полная очистка конфига авторизованного пользователя.",
+    response_description="success или error",
     responses={
         200: {
             "description": "Configuration cleared successfully",

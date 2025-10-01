@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from datetime import UTC, datetime, timedelta
-from jose import jwt, JWTError  # Добавляем JWTError для обработки ошибок
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.auth_schema import (
@@ -31,7 +31,7 @@ class PasswordService:
         return self._crypto_context.verify(raw_password, hashed_password)
 
 class TokenService:
-    def __init__(self, secret_key: str, token_lifetime: int = 1800):  # 30 мин
+    def __init__(self, secret_key: str, token_lifetime: int = 1800):
         self._secret_key = secret_key
         self._token_lifetime = token_lifetime
 
@@ -51,7 +51,7 @@ class TokenService:
                 options={"verify_exp": True},
             )
             return AuthTokenPayload.model_validate(payload)
-        except JWTError:  # Ловим все ошибки JWT
+        except JWTError:
             return None
 
 class AuthService:

@@ -80,9 +80,9 @@ async def register(
     schema: RegisterCredentials
 ):
     if schema.role == UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Registration restricted to admins")
+        raise HTTPException(status_code=403, detail="Регистрация админа ограничена (только для admin)")
     try:
         user = await auth_service.register_user(session, schema)
         return UserResponse(id=user.id, username=user.username, role=user.role)
     except Exception:
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise HTTPException(status_code=400, detail="Username уже существует")
