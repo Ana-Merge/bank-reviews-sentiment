@@ -1,6 +1,6 @@
 import styles from "./TonalityChart.module.scss";
 
-const TonalityChart = ({ chartData, aggregationType, productName }) => {
+const TonalityChart = ({ chartData, aggregationType, productName, showComparison = true }) => {
     if (!chartData || !chartData.period1 || !chartData.period2 || !chartData.changes) {
         return <div className={styles.noData}>Нет данных для отображения графика тональности</div>;
     }
@@ -128,9 +128,11 @@ const TonalityChart = ({ chartData, aggregationType, productName }) => {
                                                     style={{ height: `${negativeHeight}px` }}
                                                     title={`Отрицательные: ${negative} отзывов`}
                                                 >
-                                                    <span className={styles.percentageChangeLabel}>
-                                                        <span className={getChangeClassName(negChange)}>{formatChange(negChange)}</span>
-                                                    </span>
+                                                    {showComparison && (
+                                                        <span className={styles.percentageChangeLabel}>
+                                                            <span className={getChangeClassName(negChange)}>{formatChange(negChange)}</span>
+                                                        </span>
+                                                    )}
                                                     <span className={`${styles.barValue} ${styles.negativeText}`}>{negative}</span>
                                                 </div>
                                             </div>
@@ -146,9 +148,11 @@ const TonalityChart = ({ chartData, aggregationType, productName }) => {
                                                     style={{ height: `${neutralHeight}px` }}
                                                     title={`Нейтральные: ${neutral} отзывов`}
                                                 >
-                                                    <span className={styles.percentageChangeLabel}>
-                                                        <span className={getChangeClassName(nChange)}>{formatChange(nChange)}</span>
-                                                    </span>
+                                                    {showComparison && (
+                                                        <span className={styles.percentageChangeLabel}>
+                                                            <span className={getChangeClassName(nChange)}>{formatChange(nChange)}</span>
+                                                        </span>
+                                                    )}
                                                     <span className={styles.barValue}>{neutral}</span>
                                                 </div>
                                             </div>
@@ -164,9 +168,11 @@ const TonalityChart = ({ chartData, aggregationType, productName }) => {
                                                     style={{ height: `${positiveHeight}px` }}
                                                     title={`Положительные: ${positive} отзывов`}
                                                 >
-                                                    <span className={styles.percentageChangeLabel}>
-                                                        <span className={getChangeClassName(pChange)}>{formatChange(pChange)}</span>
-                                                    </span>
+                                                    {showComparison && (
+                                                        <span className={styles.percentageChangeLabel}>
+                                                            <span className={getChangeClassName(pChange)}>{formatChange(pChange)}</span>
+                                                        </span>
+                                                    )}
                                                     <span className={styles.barValue}>{positive}</span>
                                                 </div>
                                             </div>

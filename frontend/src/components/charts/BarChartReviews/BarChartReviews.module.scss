@@ -124,12 +124,40 @@
     margin-top: 20px;
 }
 
+.barPairSingle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 calc(10% - 15px);
+    margin-bottom: 50px;
+    position: relative;
+    min-height: 220px;
+}
+
+.barsContainerSingle {
+    display: flex;
+    gap: 0;
+    align-items: flex-end;
+    height: 200px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
 .singleBarContainer {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
     width: 50px;
+    height: 100%;
+}
+
+.singleBarContainerSingle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 60px;
     height: 100%;
 }
 
@@ -143,6 +171,16 @@
     min-height: 180px;
 }
 
+.barColumnSingle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+    min-height: 160px;
+}
+
 .barValue {
     font-size: vars.$font-size-md;
     font-weight: vars.$font-weight-medium;
@@ -154,8 +192,26 @@
     align-items: center;
 }
 
+.barValueSingle {
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    color: vars.$color-text-dark;
+    white-space: nowrap;
+    padding: 4px 0;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+}
+
 .barVisual {
     width: 50px;
+    min-height: 20px;
+    transition: height 0.3s ease;
+    border-radius: 22px 0 0 0;
+}
+
+.barVisualSingle {
+    width: 60px;
     min-height: 20px;
     transition: height 0.3s ease;
     border-radius: 22px 0 0 0;
@@ -171,6 +227,14 @@
 
 .barLabelContainer {
     min-height: 50px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+}
+
+.barLabelContainerSingle {
+    min-height: 45px;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -193,6 +257,22 @@
     justify-content: center;
 }
 
+.barLabelSingle {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-chart-text;
+    text-align: center;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: vars.$font-weight-medium;
+    line-height: 1.3;
+    padding: 6px 2px 0 2px;
+    min-height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .weekLabel {
     font-size: 11px;
     max-width: 70px;
@@ -200,6 +280,18 @@
     line-height: 1.2;
     word-break: break-word;
     min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.weekLabelSingle {
+    font-size: 11px;
+    max-width: 80px;
+    white-space: normal;
+    line-height: 1.2;
+    word-break: break-word;
+    min-height: 35px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -289,16 +381,33 @@
         margin-bottom: 50px;
     }
 
+    .barPairSingle {
+        flex: 0 0 calc(12.5% - 15px);
+        margin-bottom: 45px;
+    }
+
     .barsContainer {
         height: 200px;
+    }
+
+    .barsContainerSingle {
+        height: 180px;
     }
 
     .singleBarContainer {
         width: 45px;
     }
 
+    .singleBarContainerSingle {
+        width: 55px;
+    }
+
     .barVisual {
         width: 45px;
+    }
+
+    .barVisualSingle {
+        width: 55px;
     }
 
     .barLabel {
@@ -306,9 +415,19 @@
         max-width: 80px;
     }
 
+    .barLabelSingle {
+        font-size: vars.$font-size-xs;
+        max-width: 90px;
+    }
+
     .weekLabel {
         font-size: 10px;
         max-width: 65px;
+    }
+
+    .weekLabelSingle {
+        font-size: 10px;
+        max-width: 75px;
     }
 }
 
@@ -331,9 +450,20 @@
         min-height: 220px;
     }
 
+    .barPairSingle {
+        flex: 0 0 calc(16.666% - 15px);
+        margin-bottom: 40px;
+        min-height: 200px;
+    }
+
     .barsContainer {
         height: 180px;
         gap: 6px;
+    }
+
+    .barsContainerSingle {
+        height: 160px;
+        gap: 0;
     }
 
     .singleBarContainer {
@@ -341,19 +471,39 @@
         gap: 6px;
     }
 
+    .singleBarContainerSingle {
+        width: 50px;
+        gap: 4px;
+    }
+
     .barColumn {
         gap: 6px;
         min-height: 160px;
+    }
+
+    .barColumnSingle {
+        gap: 4px;
+        min-height: 140px;
     }
 
     .barVisual {
         width: 40px;
     }
 
+    .barVisualSingle {
+        width: 50px;
+    }
+
     .barValue {
         font-size: vars.$font-size-sm;
         padding: 4px 0;
         min-height: 24px;
+    }
+
+    .barValueSingle {
+        font-size: vars.$font-size-sm;
+        padding: 3px 0;
+        min-height: 22px;
     }
 
     .barLabel {
@@ -363,10 +513,23 @@
         padding: 6px 2px 0 2px;
     }
 
+    .barLabelSingle {
+        font-size: 11px;
+        max-width: 80px;
+        min-height: 32px;
+        padding: 5px 2px 0 2px;
+    }
+
     .weekLabel {
         font-size: 9px;
         max-width: 60px;
         min-height: 35px;
+    }
+
+    .weekLabelSingle {
+        font-size: 9px;
+        max-width: 70px;
+        min-height: 32px;
     }
 
     .legend {

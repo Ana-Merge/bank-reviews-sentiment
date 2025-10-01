@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
+import { setShowComparison, setSavedPeriod2 } from "../../../store/slices/dateSlice";
 import styles from "./DateFilter.module.scss";
 
 const DateFilter = ({
@@ -13,6 +15,9 @@ const DateFilter = ({
     aggregationType,
     onDateErrorsChange
 }) => {
+    const dispatch = useAppDispatch();
+    const { showComparison, savedPeriod2 } = useAppSelector(state => state.date);
+
     const [errors, setErrors] = useState({});
     const [warnings, setWarnings] = useState({});
     const [prevAggregationType, setPrevAggregationType] = useState(aggregationType);
@@ -282,15 +287,19 @@ const DateFilter = ({
             aggregationType,
             'period1'
         );
-        validateDateRange(
-            formatDateForInput(startDate2, aggregationType),
-            formatDateForInput(endDate2, aggregationType),
-            aggregationType,
-            'period2',
-            true
-        );
+
+        if (showComparison) {
+            validateDateRange(
+                formatDateForInput(startDate2, aggregationType),
+                formatDateForInput(endDate2, aggregationType),
+                aggregationType,
+                'period2',
+                true
+            );
+        }
+
         validatePeriodLengths();
-    }, [startDate, endDate, startDate2, endDate2, aggregationType]);
+    }, [startDate, endDate, startDate2, endDate2, aggregationType, showComparison]);
 
     const handleStartDateChange = (inputValue) => {
         const parsedDate = parseDateFromInput(inputValue, aggregationType);
@@ -310,6 +319,24 @@ const DateFilter = ({
     const handleEndDate2Change = (inputValue) => {
         const parsedDate = parseDateFromInput(inputValue, aggregationType);
         onEndDate2Change(parsedDate);
+    };
+
+    const handleComparisonToggle = () => {
+        const newShowComparison = !showComparison;
+
+        if (newShowComparison) {
+            onStartDate2Change(savedPeriod2.startDate2);
+            onEndDate2Change(savedPeriod2.endDate2);
+        } else {
+            dispatch(setSavedPeriod2({
+                startDate2: startDate2,
+                endDate2: endDate2
+            }));
+            onStartDate2Change("2026-01-01");
+            onEndDate2Change("2026-01-01");
+        }
+
+        dispatch(setShowComparison(newShowComparison));
     };
 
     const { min, max } = getMinMaxForAggregation(aggregationType);
@@ -357,47 +384,59 @@ const DateFilter = ({
                     {errors.period1Range && <div className={styles.rangeError}>{errors.period1Range}</div>}
                 </div>
 
-                <div className={styles.periodSection}>
-                    <h4 className={styles.periodTitle}>Период для сравнения</h4>
-                    <div className={styles.periodControls}>
-                        <div className={styles.filterGroup}>
-                            <label htmlFor="start-date2">Начальная дата:</label>
-                            <input
-                                id="start-date2"
-                                type={getInputType()}
-                                value={formatDateForInput(startDate2, aggregationType)}
-                                min={min}
-                                max={maxDateForPeriod2Start}
-                                onChange={(e) => handleStartDate2Change(e.target.value)}
-                                className={errors.period2Start ? styles.errorInput : ''}
-                            />
-                            {errors.period2Start && <span className={styles.errorText}>{errors.period2Start}</span>}
+                {showComparison && (
+                    <div className={styles.periodSection}>
+                        <h4 className={styles.periodTitle}>Период для сравнения</h4>
+                        <div className={styles.periodControls}>
+                            <div className={styles.filterGroup}>
+                                <label htmlFor="start-date2">Начальная дата:</label>
+                                <input
+                                    id="start-date2"
+                                    type={getInputType()}
+                                    value={formatDateForInput(startDate2, aggregationType)}
+                                    min={min}
+                                    max={maxDateForPeriod2Start}
+                                    onChange={(e) => handleStartDate2Change(e.target.value)}
+                                    className={errors.period2Start ? styles.errorInput : ''}
+                                />
+                                {errors.period2Start && <span className={styles.errorText}>{errors.period2Start}</span>}
+                            </div>
+                            <div className={styles.filterGroup}>
+                                <label htmlFor="end-date2">Конечная дата:</label>
+                                <input
+                                    id="end-date2"
+                                    type={getInputType()}
+                                    value={formatDateForInput(endDate2, aggregationType)}
+                                    min={minDateForPeriod2End}
+                                    max={maxDateForPeriod2}
+                                    onChange={(e) => handleEndDate2Change(e.target.value)}
+                                    className={errors.period2End ? styles.errorInput : ''}
+                                />
+                                {errors.period2End && <span className={styles.errorText}>{errors.period2End}</span>}
+                            </div>
                         </div>
-                        <div className={styles.filterGroup}>
-                            <label htmlFor="end-date2">Конечная дата:</label>
-                            <input
-                                id="end-date2"
-                                type={getInputType()}
-                                value={formatDateForInput(endDate2, aggregationType)}
-                                min={minDateForPeriod2End}
-                                max={maxDateForPeriod2}
-                                onChange={(e) => handleEndDate2Change(e.target.value)}
-                                className={errors.period2End ? styles.errorInput : ''}
-                            />
-                            {errors.period2End && <span className={styles.errorText}>{errors.period2End}</span>}
-                        </div>
+                        {errors.period2Range && <div className={styles.rangeError}>{errors.period2Range}</div>}
                     </div>
-                    {errors.period2Range && <div className={styles.rangeError}>{errors.period2Range}</div>}
-                </div>
+                )}
             </div>
 
-            {errors.period2BeforePeriod1 && (
+            <div className={styles.comparisonToggle}>
+                <button
+                    type="button"
+                    className={styles.toggleButton}
+                    onClick={handleComparisonToggle}
+                >
+                    {showComparison ? 'Убрать период для сравнения' : 'Добавить период для сравнения'}
+                </button>
+            </div>
+
+            {showComparison && errors.period2BeforePeriod1 && (
                 <div className={styles.periodOrderError}>
                     {errors.period2BeforePeriod1}
                 </div>
             )}
 
-            {warnings.periodLengthMismatch && (
+            {showComparison && warnings.periodLengthMismatch && (
                 <div className={styles.periodLengthHint}>
                     {warnings.periodLengthMismatch}
                 </div>

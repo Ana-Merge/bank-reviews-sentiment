@@ -28,7 +28,8 @@ const ProductPage = () => {
         endDate2,
         aggregationType,
         source,
-        dateErrors
+        dateErrors,
+        showComparison
     } = useAppSelector(state => state.date);
 
     const {
@@ -67,15 +68,49 @@ const ProductPage = () => {
     }, [categoryName, productTree, dispatch]);
 
     useEffect(() => {
-        if (!startDate || !endDate || !startDate2 || !endDate2 || !selectedProduct || hasDateErrors()) return;
+        if (!startDate || !endDate || !selectedProduct || hasDateErrors()) return;
 
         const productId = selectedProduct.id;
 
-        dispatch(fetchChangeChartData({ productId, startDate, endDate, startDate2, endDate2, source }));
-        dispatch(fetchProductStats({ startDate, endDate, startDate2, endDate2, selectedProduct, categoryId, source }));
-        dispatch(fetchBarChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }));
-        dispatch(fetchTonalityChartData({ productId, startDate, endDate, startDate2, endDate2, aggregationType, source }));
-    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, source, dateErrors, dispatch, categoryId]);
+        const effectiveStartDate2 = showComparison ? startDate2 : "2026-01-01";
+        const effectiveEndDate2 = showComparison ? endDate2 : "2026-01-01";
+
+        dispatch(fetchChangeChartData({
+            productId,
+            startDate,
+            endDate,
+            startDate2: effectiveStartDate2,
+            endDate2: effectiveEndDate2,
+            source
+        }));
+        dispatch(fetchProductStats({
+            startDate,
+            endDate,
+            startDate2: effectiveStartDate2,
+            endDate2: effectiveEndDate2,
+            selectedProduct,
+            categoryId,
+            source
+        }));
+        dispatch(fetchBarChartData({
+            productId,
+            startDate,
+            endDate,
+            startDate2: effectiveStartDate2,
+            endDate2: effectiveEndDate2,
+            aggregationType,
+            source
+        }));
+        dispatch(fetchTonalityChartData({
+            productId,
+            startDate,
+            endDate,
+            startDate2: effectiveStartDate2,
+            endDate2: effectiveEndDate2,
+            aggregationType,
+            source
+        }));
+    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, source, dateErrors, dispatch, categoryId, showComparison]);
 
     const handleProductSelect = (product) => {
         dispatch(setSelectedProduct(product));
@@ -177,6 +212,7 @@ const ProductPage = () => {
                         error={errorChangeChart}
                         data={changeChartData}
                         productName={selectedProduct?.name}
+                        showComparison={showComparison}
                     />
 
                     <BarChartSection
@@ -185,6 +221,7 @@ const ProductPage = () => {
                         data={barChartData}
                         aggregationType={aggregationType}
                         productName={selectedProduct?.name}
+                        showComparison={showComparison}
                     />
 
                     <TonalityChartSection
@@ -193,12 +230,14 @@ const ProductPage = () => {
                         data={tonalityChartData}
                         aggregationType={aggregationType}
                         productName={selectedProduct?.name}
+                        showComparison={showComparison}
                     />
 
                     <TableSection
                         isLoading={isLoadingProduct}
                         error={errorProduct}
                         data={productStats}
+                        showComparison={showComparison}
                     />
                 </>
             )}
@@ -206,38 +245,38 @@ const ProductPage = () => {
     );
 };
 
-const ChangeChartSection = ({ isLoading, error, data, productName }) => (
+const ChangeChartSection = ({ isLoading, error, data, productName, showComparison }) => (
     <div className={styles.changeChartSection}>
         {isLoading && <div className={styles.loading}><LoadingSpinner /></div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!isLoading && !error && data && <ChangeChart data={data} productName={productName} />}
+        {!isLoading && !error && data && <ChangeChart data={data} productName={productName} showComparison={showComparison} />}
         {!isLoading && !error && !data && <div className={styles.noData}>Нет данных для отображения общей статистики</div>}
     </div>
 );
 
-const BarChartSection = ({ isLoading, error, data, aggregationType, productName }) => (
+const BarChartSection = ({ isLoading, error, data, aggregationType, productName, showComparison }) => (
     <div className={styles.chartSection}>
         {isLoading && <div className={styles.loading}><LoadingSpinner /></div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!isLoading && !error && data && <BarChartReviews chartData={data} aggregationType={aggregationType} productName={productName} />}
+        {!isLoading && !error && data && <BarChartReviews chartData={data} aggregationType={aggregationType} productName={productName} showComparison={showComparison} />}
         {!isLoading && !error && (!data || !data.period1?.length) && <div className={styles.noData}>Нет данных для отображения графика</div>}
     </div>
 );
 
-const TonalityChartSection = ({ isLoading, error, data, aggregationType, productName }) => (
+const TonalityChartSection = ({ isLoading, error, data, aggregationType, productName, showComparison }) => (
     <div className={styles.tonalityChartSection}>
         {isLoading && <div className={styles.loading}><LoadingSpinner /></div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!isLoading && !error && data && <TonalityChart chartData={data} aggregationType={aggregationType} productName={productName} />}
+        {!isLoading && !error && data && <TonalityChart chartData={data} aggregationType={aggregationType} productName={productName} showComparison={showComparison} />}
         {!isLoading && !error && (!data || !data.period1?.length) && <div className={styles.noData}>Нет данных для отображения графика тональности</div>}
     </div>
 );
 
-const TableSection = ({ isLoading, error, data }) => (
+const TableSection = ({ isLoading, error, data, showComparison }) => (
     <div className={styles.tableSection}>
         {isLoading && <div className={styles.loading}><LoadingSpinner /></div>}
         {error && <div className={styles.error}>{error}</div>}
-        {!isLoading && !error && data?.length > 0 && <ProductAnalyticsTable productStats={data} />}
+        {!isLoading && !error && data?.length > 0 && <ProductAnalyticsTable productStats={data} showComparison={showComparison} />}
         {!isLoading && !error && (!data || data.length === 0) && <div className={styles.noData}>Данные не найдены для выбранного периода.</div>}
     </div>
 );

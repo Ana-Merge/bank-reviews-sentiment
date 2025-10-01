@@ -15,7 +15,6 @@ import {
 
 import styles from "./DashboardPage.module.scss";
 
-// Вспомогательная функция для получения дочерних продуктов
 const getAllChildProducts = (productTree, productId) => {
     const findProductAndDirectChildren = (nodes, targetId) => {
         for (let node of nodes) {
@@ -36,7 +35,6 @@ const getAllChildProducts = (productTree, productId) => {
     return findProductAndDirectChildren(productTree, productId);
 };
 
-// Компонент для отображения графика по конфигурации
 const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
     const [chartData, setChartData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +42,6 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [childProducts, setChildProducts] = useState([]);
 
-    // Нахождение продукта по product_id из конфигурации
     useEffect(() => {
         if (!chartConfig || !productTree) return;
 
@@ -89,7 +86,6 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
                 switch (type) {
                     case 'product_stats':
                         if (childProducts.length > 0) {
-                            // Загрузка данных для каждого дочернего продукта
                             const productStatsPromises = childProducts.map(childProduct =>
                                 apiService.getProductStats(
                                     date_start_1, date_end_1, date_start_2, date_end_2,
@@ -171,10 +167,15 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
         return sourceNames[source] || 'Все источники';
     };
 
+    const hasComparisonPeriod = () => {
+        const { date_start_2, date_end_2 } = chartConfig.attributes;
+        return date_start_2 && date_end_2 && date_start_2 !== "2026-01-01" && date_end_2 !== "2026-01-01";
+    };
+
     if (isLoading) {
         return (
             <div className={styles.chartSection}>
-                <div className={styles.loading}><LoadingSpinner /></div>
+                <LoadingSpinner />
             </div>
         );
     }
@@ -205,13 +206,14 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
     } = attributes;
 
     const commonProps = {
-        productName: selectedProduct.name
+        productName: selectedProduct.name,
+        showComparison: hasComparisonPeriod()
     };
 
     const renderChartContent = () => {
         switch (type) {
             case 'product_stats':
-                return <ProductAnalyticsTable productStats={chartData} />;
+                return <ProductAnalyticsTable productStats={chartData} showComparison={hasComparisonPeriod()} />;
             case 'monthly-review-count':
                 return (
                     <TonalityChart
@@ -245,7 +247,6 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
             <div className={styles.chartHeader}>
                 <div className={styles.chartTitleSection}>
                     <div className={styles.chartFiltersInfo}>
-                        {/* Имя продукта только для ProductAnalyticsTable */}
                         {type === 'product_stats' && (
                             <div className={styles.filterItem}>
                                 <span className={styles.filterLabel}>Продукт:</span>
@@ -262,7 +263,7 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
                                 {formatDate(date_start_1)} - {formatDate(date_end_1)}
                             </span>
                         </div>
-                        {date_start_2 && date_end_2 && (
+                        {hasComparisonPeriod() && (
                             <div className={styles.filterItem}>
                                 <span className={styles.filterLabel}>Период для сравнения:</span>
                                 <span className={styles.filterValue}>
@@ -435,7 +436,7 @@ const DashboardPage = () => {
     if (isLoading) {
         return (
             <div className={styles.pageContainer}>
-                <div className={styles.loading}>Загрузка страницы...</div>
+                <div className={styles.loading}><LoadingSpinner /></div>
             </div>
         );
     }
@@ -457,7 +458,6 @@ const DashboardPage = () => {
 
     return (
         <div className={styles.pageContainer}>
-            {/* Заголовок страницы */}
             <div className={styles.pageHeader}>
                 <div className={styles.headerContent}>
                     <h1 className={styles.pageTitle}>{page.name}</h1>
@@ -478,7 +478,6 @@ const DashboardPage = () => {
                 </button>
             </div>
 
-            {/* Контент страницы */}
             <div className={styles.pageContent}>
                 {page.charts && page.charts.length > 0 ? (
                     <div className={styles.chartsSection}>
@@ -508,14 +507,12 @@ const DashboardPage = () => {
                 )}
             </div>
 
-            {/* Действия */}
             <div className={styles.actionsSection}>
                 <button onClick={handleBackToDashboards} className={styles.backButton}>
                     ← Назад к списку дашбордов
                 </button>
             </div>
 
-            {/* Модальное окно добавления графика */}
             {showAddModal && (
                 <AddChartModal
                     isOpen={showAddModal}
@@ -526,7 +523,6 @@ const DashboardPage = () => {
                 />
             )}
 
-            {/* Модальное окно редактирования графика */}
             {editingChart && (
                 <AddChartModal
                     isOpen={true}

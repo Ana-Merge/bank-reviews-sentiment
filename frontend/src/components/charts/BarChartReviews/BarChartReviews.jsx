@@ -10,7 +10,7 @@ import {
 import { useState } from "react";
 import styles from "./BarChartReviews.module.scss";
 
-const BarChartReviews = ({ chartData, aggregationType, productName }) => {
+const BarChartReviews = ({ chartData, aggregationType, productName, showComparison = true }) => {
     const [activeChart, setActiveChart] = useState("period2");
 
     if (!chartData || !chartData.period1 || !chartData.period2) {
@@ -27,13 +27,11 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
         ...period2.map(item => item.count)
     );
 
-    // Данные для линейного графика (процентные изменения)
     const lineChartData = chartData.changes ? chartData.changes.map((item) => ({
         name: item.aggregation,
         "В сравнении с прошлым": item.change_percent,
     })) : [];
 
-    // Данные для линейного графика period2
     const period2LineChartData = period2.map((item) => ({
         name: item.aggregation,
         "Выбранный период": item.count,
@@ -199,6 +197,129 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
         }
     };
 
+    if (!showComparison) {
+        return (
+            <div className={styles.barChartContainer}>
+                <div className={styles.header}>
+                    <h3>Динамика отзывов</h3>
+                    {productName && <span className={styles.productName}>{productName}</span>}
+                </div>
+
+                <div className={styles.lineChartSection}>
+                    <div className={styles.lineChartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <LineChart
+                                data={period2LineChartData}
+                                margin={{
+                                    top: 5,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 40,
+                                }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorPeriod2" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="5%" stopColor="#ff7c7c" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#ff4d4d" stopOpacity={0.8} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    tickFormatter={(tick) => {
+                                        if (aggregationType === "month") {
+                                            return tick.substring(0, 7);
+                                        }
+                                        return tick;
+                                    }}
+                                    tick={{ fontSize: 12, dy: 10 }}
+                                />
+                                <YAxis />
+                                <Tooltip
+                                    formatter={(value) => [`${value}`, 'Количество отзывов']}
+                                    labelFormatter={(label) => {
+                                        if (aggregationType === "month") {
+                                            return `Период: ${label.substring(0, 7)}`;
+                                        }
+                                        return `Период: ${label}`;
+                                    }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="Выбранный период"
+                                    stroke="url(#colorPeriod2)"
+                                    strokeWidth={2}
+                                    dot={{ r: 2 }}
+                                    activeDot={{ r: 4 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={styles.chartContent}>
+                    <div className={styles.chartRow}>
+                        {period2.map((item, index) => {
+                            const period2Total = item ? item.count : 0;
+                            const period2Date = item ? item.aggregation : '';
+                            const height2 = calculateHeight(period2Total);
+                            const formattedPeriod2 = period2Date ? formatDate(period2Date) : null;
+
+                            return (
+                                <div key={index} className={styles.barPairSingle}>
+                                    <div className={styles.barsContainerSingle}>
+                                        <div className={styles.singleBarContainerSingle}>
+                                            <div className={styles.barColumnSingle}>
+                                                <span className={styles.barValueSingle}>{Number(period2Total) || 0}</span>
+                                                <div
+                                                    className={`${styles.barVisualSingle} ${styles.barPeriod2}`}
+                                                    style={{ height: `${height2}px` }}
+                                                    title={`Выбранный период: ${period2Total} отзывов (${period2Date})`}
+                                                />
+                                            </div>
+                                            <div className={styles.barLabelContainerSingle}>
+                                                <div className={`${styles.barLabelSingle} ${aggregationType === 'week' ? styles.weekLabelSingle : ''}`}>
+                                                    {aggregationType === 'month' && formattedPeriod2 ? (
+                                                        <div className={styles.monthLabel}>
+                                                            <div className={styles.monthName}>{formattedPeriod2.month}</div>
+                                                            <div className={styles.year}>{formattedPeriod2.year}</div>
+                                                        </div>
+                                                    ) : aggregationType === 'day' && formattedPeriod2 ? (
+                                                        <div className={styles.dayLabel}>
+                                                            <div className={styles.dayMonth}>{formattedPeriod2.dayMonth}</div>
+                                                            <div className={styles.year}>{formattedPeriod2.year}</div>
+                                                        </div>
+                                                    ) : (
+                                                        formattedPeriod2 || '—'
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={styles.legend}>
+                    <div className={styles.legendItem}>
+                        <div className={styles.legendColorPeriod2}></div>
+                        <span>Выбранный период</span>
+                    </div>
+                    {period2.length > 0 && (
+                        <div className={styles.periodsInfo}>
+                            Всего периодов: {period2.length}
+                        </div>
+                    )}
+                    <div className={styles.aggregationInfo}>
+                        Группировка: {getAggregationText()}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={styles.barChartContainer}>
             <div className={styles.header}>
@@ -206,7 +327,6 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
                 {productName && <span className={styles.productName}>{productName}</span>}
             </div>
 
-            {/* Кнопки переключения графиков */}
             <div className={styles.chartToggle}>
                 <button
                     className={`${styles.toggleButton} ${activeChart === "period2" ? styles.active : ""}`}
@@ -222,10 +342,8 @@ const BarChartReviews = ({ chartData, aggregationType, productName }) => {
                 </button>
             </div>
 
-            {/* Линейный график */}
             {renderLineChart()}
 
-            {/* Столбчатый график */}
             <div className={styles.chartContent}>
                 <div className={styles.chartRow}>
                     {Array.from({ length: totalPairs }).map((_, index) => {

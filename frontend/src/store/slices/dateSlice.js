@@ -10,6 +10,11 @@ const dateSlice = createSlice({
         aggregationType: "month",
         source: null,
         dateErrors: {},
+        showComparison: true,
+        savedPeriod2: {
+            startDate2: "2024-12-01",
+            endDate2: "2025-02-28"
+        }
     },
     reducers: {
         setStartDate: (state, action) => {
@@ -36,6 +41,16 @@ const dateSlice = createSlice({
         clearDateErrors: (state) => {
             state.dateErrors = {};
         },
+        setShowComparison: (state, action) => {
+            state.showComparison = action.payload;
+        },
+        setSavedPeriod2: (state, action) => {
+            state.savedPeriod2 = action.payload;
+        },
+        restoreComparisonPeriod: (state) => {
+            state.startDate2 = "2024-12-01";
+            state.endDate2 = "2025-02-28";
+        },
     },
 });
 
@@ -48,6 +63,9 @@ export const {
     setSource,
     setDateErrors,
     clearDateErrors,
+    setShowComparison,
+    setSavedPeriod2,
+    restoreComparisonPeriod,
 } = dateSlice.actions;
 
 export default dateSlice.reducer;

@@ -1,9 +1,33 @@
 import styles from "./ChangeChart.module.scss";
 
-const ChangeChart = ({ data, productName }) => {
+const ChangeChart = ({ data, productName, showComparison = true }) => {
   if (!data) return null;
 
   const { total, change_percent } = data;
+
+  // Если сравнение отключено, показ только общего количества
+  if (!showComparison) {
+    return (
+      <div className={styles.changeChart}>
+        <div className={styles.header}>
+          <h3>Общая статистика отзывов</h3>
+          {productName && <span className={styles.productName}>{productName}</span>}
+        </div>
+        <div className={styles.chartContainer}>
+          <div className={styles.circleWrapper}>
+            <div className={styles.outerCircle} style={{ background: 'transparent' }}>
+              <div className={styles.innerCircle}>
+                <span className={styles.totalValue}>{total}</span>
+              </div>
+            </div>
+            <span className={styles.percentValue} style={{ display: 'none' }}>
+              {change_percent > 0 ? `+${change_percent}%` : `${change_percent}%`}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const normalizedPercent = Math.min(Math.abs(change_percent), 100);
 
