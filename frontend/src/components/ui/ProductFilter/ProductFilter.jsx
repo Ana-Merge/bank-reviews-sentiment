@@ -174,18 +174,6 @@ const ProductFilter = ({ onProductSelect, selectedProduct, productTree, allowBac
           {getDisplayText()}
         </span>
         <div className={styles.iconWrapper}>
-          {selectedProduct && !isRootCategorySelected() && (
-            <button
-              className={styles.clearButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClear();
-              }}
-              aria-label="Очистить фильтр"
-            >
-              ×
-            </button>
-          )}
           <span className={styles.arrowIcon}>&#9660;</span>
         </div>
       </button>

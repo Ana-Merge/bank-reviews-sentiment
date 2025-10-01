@@ -9,6 +9,7 @@ const ProductPage = lazy(() => import("../pages/ProductPage/ProductPage"));
 const DashboardPage = lazy(() => import("../pages/DashboardPage/DashboardPage"));
 const UserDashboardsPage = lazy(() => import("../pages/UserDashboardsPage/UserDashboardsPage"));
 const UserDashboardPage = lazy(() => import("../pages/UserDashboardPage/UserDashboardPage"));
+const ReviewsPage = lazy(() => import("../pages/ReviewsPage/ReviewsPage"));
 
 const AppRouter = createBrowserRouter([
   {
@@ -84,7 +85,6 @@ const AppRouter = createBrowserRouter([
           </Suspense>
         ),
       },
-      // Новые маршруты для просмотра пользовательских дашбордов
       {
         path: "user-dashboards/:userId",
         element: (
@@ -98,6 +98,14 @@ const AppRouter = createBrowserRouter([
         element: (
           <Suspense fallback={<LoadingSpinner />}>
             <UserDashboardPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "reviews",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ReviewsPage />
           </Suspense>
         ),
       },

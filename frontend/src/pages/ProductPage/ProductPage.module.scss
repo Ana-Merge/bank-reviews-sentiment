@@ -111,27 +111,70 @@
     }
 }
 
-.productFilterSection {
+.filtersRow {
     display: flex;
-    gap: 100px;
+    gap: 40px;
+    align-items: flex-end;
+    flex-wrap: wrap;
 
-    .filterGroup {
-        display: inline-flex;
-        flex-direction: column;
-        justify-content: end;
-        gap: 6px;
-        min-width: 250px;
-
-        label {
-            font-size: vars.$font-size-sm;
-            color: vars.$color-text;
-            font-weight: vars.$font-weight-medium;
-        }
+    @media (max-width: 1200px) {
+        gap: 30px;
     }
 
-    .filterButton {
-        width: 100%;
-        min-width: 250px;
+    @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+    }
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+
+    label {
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
+        font-weight: vars.$font-weight-medium;
+        white-space: nowrap;
+    }
+}
+
+.filterButton {
+    width: 100%;
+    min-width: 200px;
+}
+
+.reviewsButtonContainer {
+    display: flex;
+    align-items: flex-end;
+    height: 72px;
+}
+
+.reviewsButton {
+    padding: 12px 24px;
+    background-color: vars.$color-primary;
+    color: vars.$color-white;
+    border: none;
+    border-radius: 8px;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-align: center;
+    white-space: nowrap;
+    min-width: 180px;
+
+    &:hover:not(:disabled) {
+        background-color: vars.$color-primary-hover;
+    }
+
+    &:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
     }
 }
 

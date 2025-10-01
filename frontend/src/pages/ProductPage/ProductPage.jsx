@@ -6,9 +6,11 @@ import { fetchProductTree, setSelectedProduct, setCategoryId } from "../../store
 import { setStartDate, setEndDate, setStartDate2, setEndDate2, setAggregationType, setSource, setDateErrors } from "../../store/slices/dateSlice";
 import { fetchProductStats, fetchBarChartData, fetchChangeChartData, fetchTonalityChartData, clearChartData } from "../../store/slices/chartSlice";
 import { useCategoryFromPath } from "../../hooks/useCategoryFromPath";
+import { useNavigate } from "react-router-dom";
 
 const ProductPage = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const { categoryName } = useCategoryFromPath();
 
     const {
@@ -83,6 +85,19 @@ const ProductPage = () => {
         dispatch(setDateErrors(errors));
     };
 
+    const handleViewReviews = () => {
+        if (!selectedProduct) return;
+
+        const queryParams = new URLSearchParams({
+            product_id: selectedProduct.id,
+            start_date: startDate || '',
+            end_date: endDate || '',
+            source: source || '',
+        });
+
+        navigate(`/reviews?${queryParams.toString()}`);
+    };
+
     const hasDateErrors = () => Object.keys(dateErrors).length > 0;
 
     if (isLoadingTree) {
@@ -113,7 +128,7 @@ const ProductPage = () => {
                             onDateErrorsChange={handleDateErrorsChange}
                         />
                     </div>
-                    <div className={styles.productFilterSection}>
+                    <div className={styles.filtersRow}>
                         <div className={styles.filterGroup}>
                             <label>Продукт:</label>
                             <ProductFilter
@@ -135,6 +150,15 @@ const ProductPage = () => {
                                 aggregationType={aggregationType}
                                 onAggregationChange={(type) => dispatch(setAggregationType(type))}
                             />
+                        </div>
+                        <div className={styles.reviewsButtonContainer}>
+                            <button
+                                className={styles.reviewsButton}
+                                onClick={handleViewReviews}
+                                disabled={!selectedProduct}
+                            >
+                                Посмотреть отзывы
+                            </button>
                         </div>
                     </div>
                 </div>

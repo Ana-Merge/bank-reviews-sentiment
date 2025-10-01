@@ -58,4 +58,13 @@ export const apiService = {
     if (source) endpoint += `&source=${encodeURIComponent(source)}`;
     return request(endpoint);
   },
+
+  async getReviews(productId, startDate = null, endDate = null, source = null, sentiment = null, orderBy = 'asc', page = 0, size = 30) {
+    let endpoint = `/v1/dashboards/reviews?product_id=${productId}&page=${page}&size=${size}&order_by=${orderBy}`;
+    if (startDate) endpoint += `&start_date=${startDate}`;
+    if (endDate) endpoint += `&end_date=${endDate}`;
+    if (source) endpoint += `&source=${encodeURIComponent(source)}`;
+    if (sentiment) endpoint += `&sentiment=${sentiment}`;
+    return request(endpoint);
+  },
 };
