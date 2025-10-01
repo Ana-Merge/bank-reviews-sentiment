@@ -236,7 +236,7 @@ class ReviewsForModel(Base):
     bank_name: Mapped[str] = mapped_column(String(100), nullable=True)
     bank_slug: Mapped[str] = mapped_column(String(100), nullable=True)
     product_name: Mapped[str] = mapped_column(String(100), nullable=True)
-    review_theme: Mapped[str] = mapped_column(String(500), nullable=True)
+    review_theme: Mapped[str] = mapped_column(Text, nullable=True)
     rating: Mapped[str] = mapped_column(String(20), nullable=True)
     verification_status: Mapped[str] = mapped_column(String(100), nullable=True)
     review_text: Mapped[str] = mapped_column(Text, nullable=False)

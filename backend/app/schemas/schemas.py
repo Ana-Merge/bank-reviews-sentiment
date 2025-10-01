@@ -308,10 +308,12 @@ class PeriodPieData(BaseModel):
     data: List[float]
     colors: List[str]
     total: int
+    absolute_data: Dict[str, int]
 
 class ChangesPieData(BaseModel):
     labels: List[str]
     percentage_point_changes: List[float]
+    absolute_changes: Dict[str, int]
 
 class ChangeChartResponse(BaseModel):
     total: int
@@ -321,6 +323,7 @@ class MonthlyPieChartResponse(BaseModel):
     period1: PeriodPieData
     period2: PeriodPieData
     changes: ChangesPieData
+
 
 class SmallBarChartsResponse(BaseModel):
     title: str

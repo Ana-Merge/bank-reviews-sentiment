@@ -1136,9 +1136,9 @@ class StatsService:
         product = await self._product_repo.get_by_id(session, product_id)
         if not product:
             return {
-                "period1": {"labels": [], "data": [], "colors": [], "total": 0},
-                "period2": {"labels": [], "data": [], "colors": [], "total": 0},
-                "changes": {"labels": [], "percentage_point_changes": []}
+                "period1": {"labels": [], "data": [], "colors": [], "total": 0, "absolute_data": {}},
+                "period2": {"labels": [], "data": [], "colors": [], "total": 0, "absolute_data": {}},
+                "changes": {"labels": [], "percentage_point_changes": [], "absolute_changes": {}}
             }
 
         if product.type in [ProductType.CATEGORY, ProductType.SUBCATEGORY]:
@@ -1149,6 +1149,13 @@ class StatsService:
 
         total1 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
         tonality1 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date_parsed, end_date_parsed, source)
+        
+        # Абсолютные значения для периода 1
+        absolute_data1 = {
+            "negative": tonality1.get('negative', 0),
+            "neutral": tonality1.get('neutral', 0),
+            "positive": tonality1.get('positive', 0)
+        }
         
         if total1 > 0:
             data1 = [
@@ -1162,6 +1169,13 @@ class StatsService:
         total2 = await self._review_repo.count_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
         tonality2 = await self._review_repo.get_tonality_counts_by_product_and_period(session, product_ids, start_date2_parsed, end_date2_parsed, source)
         
+        # Абсолютные значения для периода 2
+        absolute_data2 = {
+            "negative": tonality2.get('negative', 0),
+            "neutral": tonality2.get('neutral', 0),
+            "positive": tonality2.get('positive', 0)
+        }
+        
         if total2 > 0:
             data2 = [
                 round(tonality2.get('negative', 0) / total2 * 100, 1),
@@ -1172,6 +1186,13 @@ class StatsService:
             data2 = [0.0, 0.0, 0.0]
 
         percentage_point_changes = [data1[i] - data2[i] for i in range(3)]
+        
+        # Абсолютные изменения
+        absolute_changes = {
+            "negative": absolute_data1["negative"] - absolute_data2["negative"],
+            "neutral": absolute_data1["neutral"] - absolute_data2["neutral"],
+            "positive": absolute_data1["positive"] - absolute_data2["positive"]
+        }
         
         percentage_changes = []
         for i in range(3):
@@ -1197,20 +1218,23 @@ class StatsService:
                 "labels": labels, 
                 "data": data1, 
                 "colors": colors, 
-                "total": total1
+                "total": total1,
+                "absolute_data": absolute_data1  # Добавлено абсолютные значения
             },
             "period2": {
                 "labels": labels, 
                 "data": data2, 
                 "colors": colors, 
-                "total": total2
+                "total": total2,
+                "absolute_data": absolute_data2  # Добавлено абсолютные значения
             },
             "changes": {
                 "labels": labels, 
                 "percentage_point_changes": percentage_point_changes,
-                "percentage_changes": percentage_changes
+                "percentage_changes": percentage_changes,
+                "absolute_changes": absolute_changes  # Добавлено абсолютные изменения
             }
-        }   
+        }
 
     async def get_tonality_stacked_bars(
         self, session: AsyncSession, product_id: int, start_date: str, end_date: str,

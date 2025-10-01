@@ -87,7 +87,7 @@ class ParserService:
         session: AsyncSession,
         bank_slug: str,
         product_name: str,  # Это оригинальное английское название из reviews_for_model
-        limit: int = 1000,
+        limit: int = 10000,
         mark_processed: bool = True
     ) -> Dict[str, Any]:
         """

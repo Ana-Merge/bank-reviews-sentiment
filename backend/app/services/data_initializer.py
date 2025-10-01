@@ -106,7 +106,7 @@ class DataInitializer:
         processing_results = {}
         total_processed = 0
         total_created = 0
-
+        
         try:
             # Получаем уникальные банки и продукты из загруженных данных
             unique_combinations = await self._get_unique_bank_product_combinations(session)
