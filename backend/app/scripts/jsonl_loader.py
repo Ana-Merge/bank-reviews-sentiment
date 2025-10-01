@@ -1,4 +1,5 @@
 # [file name]: jsonl_loader.py
+# [file content begin]
 import json
 import logging
 import os
@@ -91,16 +92,15 @@ class JSONLLoader:
     def _transform_review_data(self, review_data: Dict[str, Any], source: str) -> Dict[str, Any]:
         """
         Преобразует данные из JSONL в формат для ReviewsForModel
+        ВАЖНО: Сохраняем ОРИГИНАЛЬНЫЕ английские названия продуктов!
         """
         # Парсим дату
         review_date = review_data.get('review_date', '')
         review_timestamp = self._parse_review_date(review_date)
 
-        # Определяем product_name из topic или используем значение по умолчанию
-        product_name = review_data.get('topic', 'general')
-        if not product_name or product_name == 'null':
-            product_name = 'general'
-
+        # Сохраняем ОРИГИНАЛЬНОЕ английское название продукта
+        english_product_name = review_data.get('topic', 'general')
+        
         # Создаем bank_slug из bank_name если не указан
         bank_name = review_data.get('bank_name', '')
         bank_slug = review_data.get('bank_slug') or self._create_bank_slug(bank_name)
@@ -108,8 +108,8 @@ class JSONLLoader:
         return {
             'bank_name': bank_name,
             'bank_slug': bank_slug,
-            'product_name': product_name,
-            'review_theme': review_data.get('review_theme', '')[:500],  # Обрезаем до 500 символов
+            'product_name': english_product_name,  # Сохраняем ОРИГИНАЛЬНОЕ английское название
+            'review_theme': review_data.get('review_theme', '')[:5000],
             'rating': str(review_data.get('rating', 'Без оценки')),
             'verification_status': review_data.get('verification_status', ''),
             'review_text': review_data.get('review_text', ''),
@@ -121,6 +121,7 @@ class JSONLLoader:
             'additional_data': {
                 'source': source,
                 'original_topic': review_data.get('topic'),
+                'english_product_name': english_product_name,
                 'import_timestamp': datetime.utcnow().isoformat(),
                 'original_source': review_data.get('source', 'unknown')
             }
@@ -180,3 +181,4 @@ class JSONLLoader:
         
         slug_result = ''.join(result)
         return slug_result if slug_result else 'unknown'
+# [file content end]

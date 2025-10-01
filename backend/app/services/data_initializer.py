@@ -1,4 +1,6 @@
 # [file name]: data_initializer.py
+# [file content begin]
+# [file name]: data_initializer.py
 import os
 import logging
 from typing import List, Dict, Any
@@ -22,8 +24,16 @@ class DataInitializer:
         Основная функция инициализации данных при запуске
         """
         results = {
+            "base_categories": {},
             "jsonl_loading": {},
             "data_processing": {}
+        }
+
+        # Шаг 0: Создаем базовую структуру категорий
+        base_categories_result = await self.parser_service.create_base_categories(session)
+        results["base_categories"] = {
+            "status": "completed",
+            "categories_created": base_categories_result
         }
 
         # Шаг 1: Загрузка данных из JSONL файлов
@@ -118,7 +128,7 @@ class DataInitializer:
                     session, 
                     bank_slug, 
                     product_name, 
-                    limit=10000,  # Большой лимит чтобы обработать все
+                    limit=100000,  # Большой лимит чтобы обработать все
                     mark_processed=True
                 )
                 
@@ -146,15 +156,21 @@ class DataInitializer:
     async def _get_unique_bank_product_combinations(self, session: AsyncSession) -> List[tuple]:
         """
         Получает уникальные комбинации банк-продукт из непереработанных отзывов
-        ИСПРАВЛЕННЫЙ МЕТОД - правильный синтаксис DISTINCT
+        ВАЖНО: Используем оригинальные английские названия из reviews_for_model
         """
-        # Правильный способ получить DISTINCT пары (bank_slug, product_name)
+        from sqlalchemy import select
+        from app.models.models import ReviewsForModel
+
         statement = select(
             ReviewsForModel.bank_slug, 
-            ReviewsForModel.product_name
+            ReviewsForModel.product_name  # ОРИГИНАЛЬНОЕ английское название
         ).where(
             ReviewsForModel.processed == False
-        ).distinct()  # Используем .distinct() без параметров для уникальных комбинаций
+        ).distinct()
         
         result = await session.execute(statement)
-        return result.all()
+        combinations = result.all()
+        
+        logger.info(f"Found {len(combinations)} unique combinations: {combinations}")
+        return combinations
+# [file content end]

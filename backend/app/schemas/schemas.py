@@ -146,12 +146,6 @@ class ReviewBulkItem(BaseModel):
     id: int
     text: NonEmptyStr
 
-    @field_validator("text")
-    @classmethod
-    def validate_text(cls, v):
-        if len(v) > 1000:
-            raise ValueError("Текст отзыва слишком большой")
-        return v
     
 class ReviewBulkCreate(BaseModel):
     data: List[ReviewBulkItem]

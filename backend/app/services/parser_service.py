@@ -86,7 +86,7 @@ class ParserService:
         self,
         session: AsyncSession,
         bank_slug: str,
-        product_name: str,
+        product_name: str,  # Это оригинальное английское название из reviews_for_model
         limit: int = 1000,
         mark_processed: bool = True
     ) -> Dict[str, Any]:
@@ -94,16 +94,22 @@ class ParserService:
         Обработка спарсенных отзывов и перенос в основные таблицы
         """
         try:
+            logger.info(f"Starting processing for bank_slug: {bank_slug}, product_name: {product_name}")
+            
             # Получаем непереработанные отзывы
             unprocessed_reviews = await self._reviews_for_model_repo.get_all(
                 session, page=0, size=limit, processed=False
             )
             
-            # Фильтруем по банку и продукту
+            logger.info(f"Total unprocessed reviews: {len(unprocessed_reviews)}")
+            
+            # Фильтруем по банку и продукту (оригинальное английское название)
             filtered_reviews = [
                 review for review in unprocessed_reviews 
                 if review.bank_slug == bank_slug and review.product_name == product_name
             ]
+            
+            logger.info(f"Filtered reviews for {bank_slug}-{product_name}: {len(filtered_reviews)}")
             
             if not filtered_reviews:
                 return {
@@ -120,73 +126,107 @@ class ParserService:
             product_repo = ProductRepository()
             review_repo = ReviewRepository()
             
-            product = await product_repo.get_by_name(session, product_name)
+            # ПЕРЕВОДИМ АНГЛИЙСКОЕ НАЗВАНИЕ НА РУССКОЕ
+            russian_product_name = self._translate_product_name(product_name)
+            logger.info(f"Translated product name: '{product_name}' -> '{russian_product_name}'")
+            
+            # ПОЛУЧАЕМ РОДИТЕЛЯ ДЛЯ ПРОДУКТА
+            parent_product = await self._get_or_create_parent_product(session, product_repo, russian_product_name)
+            if parent_product:
+                logger.info(f"Parent product: {parent_product.name} (id: {parent_product.id})")
+            
+            # ИЩЕМ ИЛИ СОЗДАЕМ ПРОДУКТ С РУССКИМ НАЗВАНИЕМ
+            product = await product_repo.get_by_name(session, russian_product_name)
             products_created = 0
             
             if not product:
                 from app.models.models import Product, ProductType, ClientType
+                
+                # ОПРЕДЕЛЯЕМ ТИП ПРОДУКТА И УРОВЕНЬ
+                product_type, level = self._determine_product_type_and_level(russian_product_name, parent_product)
+                
+                logger.info(f"Creating new product: {russian_product_name}, type: {product_type}, level: {level}")
+                
                 product = Product(
-                    name=product_name,
-                    type=ProductType.PRODUCT,
+                    name=russian_product_name,
+                    type=product_type,
                     client_type=ClientType.BOTH,
-                    level=0
+                    level=level,
+                    parent_id=parent_product.id if parent_product else None
                 )
                 product = await product_repo.save(session, product)
                 products_created = 1
-                logger.info(f"Created new product: {product_name}")
+                logger.info(f"Created new product: {russian_product_name} (id: {product.id})")
+            else:
+                logger.info(f"Product already exists: {russian_product_name} (id: {product.id})")
             
             # Обрабатываем отзывы
             reviews_created = 0
             review_ids_to_mark = []
             
-            for parsed_review in filtered_reviews:
+            for i, parsed_review in enumerate(filtered_reviews):
                 try:
+                    logger.info(f"Processing review {i+1}/{len(filtered_reviews)}: ID {parsed_review.id}")
+                    
                     # Пропускаем отзывы с оценкой 0
                     rating = self._parse_rating(parsed_review.rating)
+                    logger.info(f"Parsed rating: {parsed_review.rating} -> {rating}")
+                    
                     if rating == 0:
+                        logger.info(f"Skipping review with rating 0: {parsed_review.id}")
                         continue
                     
-                    # ОПРЕДЕЛЯЕМ ТОНАЛЬНОСТЬ ОДИН РАЗ ДЛЯ ВСЕХ ТАБЛИЦ
                     sentiment = self._determine_sentiment(rating)
                     sentiment_score = self._calculate_sentiment_score(sentiment)
+                    logger.info(f"Determined sentiment: {sentiment}, score: {sentiment_score}")
                     
                     review_date = self._parse_review_date(parsed_review.review_date)
                     if not review_date:
+                        logger.warning(f"Could not parse date: {parsed_review.review_date}")
                         continue
                     
+                    logger.info(f"Parsed date: {parsed_review.review_date} -> {review_date}")
+                    
                     source = self._parse_source_from_url(parsed_review.source_url)
+                    logger.info(f"Parsed source: {source}")
                     
                     from app.models.models import Review, ReviewProduct
-                    # Создаем отзыв
+                    
+                    # СОЗДАЕМ ОТЗЫВ В ОСНОВНОЙ ТАБЛИЦЕ
                     review = Review(
                         text=parsed_review.review_text,
                         date=review_date,
                         rating=rating,
-                        sentiment=sentiment,  # Тональность для таблицы reviews
-                        sentiment_score=sentiment_score,  # Score для таблицы reviews
+                        sentiment=sentiment,
+                        sentiment_score=sentiment_score,
                         source=source
                     )
                     
                     saved_review = await review_repo.save(session, review)
+                    logger.info(f"Created review in main table: ID {saved_review.id}")
                     
-                    # Создаем связь в review_products с ТАКОЙ ЖЕ тональностью
+                    # СОЗДАЕМ СВЯЗЬ В REVIEW_PRODUCTS
                     review_product = ReviewProduct(
                         review_id=saved_review.id,
                         product_id=product.id,
-                        sentiment=sentiment,  # ТА ЖЕ тональность что и в reviews
-                        sentiment_score=sentiment_score  # ТОТ ЖЕ score что и в reviews
+                        sentiment=sentiment,
+                        sentiment_score=sentiment_score
                     )
                     session.add(review_product)
                     await session.flush()
+                    logger.info(f"Created review_product link: review_id={saved_review.id}, product_id={product.id}")
                     
                     reviews_created += 1
                     review_ids_to_mark.append(parsed_review.id)
                     
                 except Exception as e:
-                    logger.error(f"Error processing review {parsed_review.id}: {str(e)}")
+                    logger.error(f"Error processing review {parsed_review.id}: {str(e)}", exc_info=True)
                     continue
             
+            logger.info(f"Successfully processed {reviews_created} reviews")
+            
             if mark_processed and review_ids_to_mark:
+                logger.info(f"Marking {len(review_ids_to_mark)} reviews as processed")
                 await self._reviews_for_model_repo.mark_bulk_as_processed(
                     session, review_ids_to_mark
                 )
@@ -195,43 +235,258 @@ class ParserService:
                 "status": "success",
                 "bank_slug": bank_slug,
                 "product_name": product_name,
+                "russian_product_name": russian_product_name,
                 "reviews_processed": len(filtered_reviews),
                 "reviews_created": reviews_created,
                 "products_created": products_created,
+                "product_id": product.id if product else None,
                 "message": f"Successfully processed {reviews_created} reviews"
             }
             
         except Exception as e:
-            logger.error(f"Error processing parsed reviews: {str(e)}")
+            logger.error(f"Error processing parsed reviews: {str(e)}", exc_info=True)
             return {
                 "status": "error",
                 "message": f"Processing failed: {str(e)}"
             }
 
+    def _translate_product_name(self, english_name: str) -> str:
+        """
+        Переводит английские названия продуктов на русский
+        """
+        translation_map = {
+            # Основные категории
+            'cards': 'Карты',
+            'debitcards': 'Дебетовые карты',
+            'creditcards': 'Кредитные карты',
+            'credits': 'Кредиты',
+            'deposits': 'Вклады и счета',
+            'service': 'Обслуживание',
+            'other': 'Другие услуги',
+            'restructing': 'Реструктуризация',
+            'remote': 'Дистанционное обслуживание',
+            'mobile_app': 'Мобильное приложение',
+            'hypothec': 'Ипотека',
+            
+            # Конкретные продукты (если есть в данных)
+            'gazpromDEB': 'Дебетовая карта Газпромбанк',
+            'DEB Supreme': 'Дебетовая карта Supreme',
+            'Для dep школьников': 'Дебетовая карта для школьников',
+            'gazpromDEBNEW': 'Новая дебетовая карта Газпромбанк',
+            'Golden Deb': 'Золотая дебетовая карта',
+            'Deb New Brilliant': 'Дебетовая карта Brilliant',
+            'Золотая golden Deb': 'Золотая дебетовая карта',
+            
+            'карта "Мир"': 'Карта Мир',
+            'Mir Supreme': 'Карта Мир Supreme', 
+            'Для школьников': 'Карта для школьников',
+            'карта "Мир2"': 'Карта Мир 2',
+            'Mir Supreme2': 'Карта Мир Supreme 2',
+            'Для школьников2': 'Карта для школьников 2',
+            'Золотая карта': 'Золотая карта',
+            'Платиновая карта': 'Платиновая карта',
+            
+            'Вклад лучшие проценты': 'Вклад "Лучшие проценты"',
+            'Вклад Накопилка': 'Вклад "Накопилка"',
+            'Накопление для школьников': 'Накопление для школьников',
+            'Винстон черчиль': 'Вклад "Винстон Черчилль"',
+            
+            # Общие
+            'general': 'Общие услуги'
+        }
+        
+        return translation_map.get(english_name, english_name)
+
+    def _determine_product_type_and_level(self, product_name: str, parent_product=None) -> tuple:
+        """
+        Определяет тип продукта и уровень в иерархии
+        """
+        from app.models.models import ProductType
+        
+        product_lower = product_name.lower()
+        
+        # Если есть родитель, то это продукт нижнего уровня
+        if parent_product:
+            return ProductType.PRODUCT, parent_product.level + 1
+        
+        # Определяем категории верхнего уровня
+        top_level_categories = [
+            'карты', 'кредиты', 'вклады и счета', 'обслуживание', 'другие услуги'
+        ]
+        
+        if any(cat in product_lower for cat in top_level_categories):
+            return ProductType.CATEGORY, 0
+        else:
+            # Если не категория верхнего уровня, но и нет родителя - создаем как продукт уровня 0
+            return ProductType.PRODUCT, 0
+
+    async def create_base_categories(self, session: AsyncSession):
+        """
+        Создает базовую структуру категорий продуктов
+        """
+        from app.repositories.repositories import ProductRepository
+        from app.models.models import Product, ProductType, ClientType
+        
+        product_repo = ProductRepository()
+        
+        base_categories = [
+            {
+                'name': 'Карты',
+                'type': ProductType.CATEGORY,
+                'level': 0,
+                'children': [
+                    {'name': 'Дебетовые карты', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Кредитные карты', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                ]
+            },
+            {
+                'name': 'Кредиты', 
+                'type': ProductType.CATEGORY,
+                'level': 0,
+                'children': [
+                    {'name': 'Ипотека', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Реструктуризация', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                ]
+            },
+            {
+                'name': 'Вклады и счета',
+                'type': ProductType.CATEGORY, 
+                'level': 0
+            },
+            {
+                'name': 'Обслуживание',
+                'type': ProductType.CATEGORY,
+                'level': 0,
+                'children': [
+                    {'name': 'Дистанционное обслуживание', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Мобильное приложение', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                ]
+            },
+            {
+                'name': 'Другие услуги',
+                'type': ProductType.CATEGORY,
+                'level': 0
+            }
+        ]
+        
+        created_count = 0
+        for category_data in base_categories:
+            # Проверяем существует ли категория
+            existing_category = await product_repo.get_by_name(session, category_data['name'])
+            if not existing_category:
+                # Создаем основную категорию
+                category = Product(
+                    name=category_data['name'],
+                    type=category_data['type'],
+                    client_type=ClientType.BOTH,
+                    level=category_data['level']
+                )
+                category = await product_repo.save(session, category)
+                created_count += 1
+                logger.info(f"Created base category: {category_data['name']}")
+                
+                # Создаем дочерние категории если есть
+                if 'children' in category_data:
+                    for child_data in category_data['children']:
+                        existing_child = await product_repo.get_by_name(session, child_data['name'])
+                        if not existing_child:
+                            child = Product(
+                                name=child_data['name'],
+                                type=child_data['type'],
+                                client_type=ClientType.BOTH,
+                                level=child_data['level'],
+                                parent_id=category.id
+                            )
+                            await product_repo.save(session, child)
+                            created_count += 1
+                            logger.info(f"Created child category: {child_data['name']} under {category_data['name']}")
+        
+        if created_count > 0:
+            await session.commit()
+            logger.info(f"Created {created_count} base categories")
+        
+        return created_count
+
+    async def _get_or_create_parent_product(self, session: AsyncSession, product_repo, product_name: str):
+        """
+        Получает или создает родительский продукт для указанного продукта
+        """
+        from app.models.models import Product, ProductType, ClientType
+        
+        product_lower = product_name.lower()
+        
+        # ОПРЕДЕЛЯЕМ РОДИТЕЛЯ ДЛЯ КАЖДОГО ТИПА ПРОДУКТА
+        parent_mapping = {
+            # Карты и связанные продукты
+            'дебетовые карты': ('Карты', ProductType.SUBCATEGORY),
+            'кредитные карты': ('Карты', ProductType.SUBCATEGORY),
+            
+            # Кредиты и связанные продукты  
+            'ипотека': ('Кредиты', ProductType.SUBCATEGORY),
+            'реструктуризация': ('Кредиты', ProductType.SUBCATEGORY),
+            
+            # Вклады (без родителя - верхний уровень)
+            'вклады и счета': (None, ProductType.CATEGORY),
+            
+            # Обслуживание и связанные продукты
+            'дистанционное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
+            'мобильное приложение': ('Обслуживание', ProductType.SUBCATEGORY),
+            'обслуживание': (None, ProductType.CATEGORY),
+            
+            # Другие (без родителя)
+            'другие услуги': (None, ProductType.CATEGORY),
+            'кредиты': (None, ProductType.CATEGORY),
+        }
+        
+        # Ищем подходящего родителя
+        parent_name = None
+        parent_type = ProductType.CATEGORY
+        
+        for key, (p_name, p_type) in parent_mapping.items():
+            if key in product_lower:
+                parent_name = p_name
+                parent_type = p_type
+                break
+        
+        # Если родитель не найден, возвращаем None
+        if not parent_name:
+            return None
+        
+        # Получаем или создаем родителя
+        parent_product = await product_repo.get_by_name(session, parent_name)
+        
+        if not parent_product:
+            parent_product = Product(
+                name=parent_name,
+                type=parent_type,
+                client_type=ClientType.BOTH,
+                level=0,  # Родители всегда уровень 0
+                parent_id=None
+            )
+            parent_product = await product_repo.save(session, parent_product)
+            logger.info(f"Created parent product: {parent_name}")
+        
+        return parent_product
+
     def _parse_source_from_url(self, url: str) -> str:
-        """Парсит источник из URL строки"""
+        """
+        Определяет источник отзыва из URL
+        """
         if not url:
             return "unknown"
         
-        try:
-            url_lower = url.lower()
-            
-            if 'banki' in url_lower:
-                return "Banki.ru"
-            elif 'sravni' in url_lower:
-                return "Sravni.ru"
-            else:
-                from urllib.parse import urlparse
-                parsed_url = urlparse(url)
-                domain = parsed_url.netloc
-                if domain.startswith('www.'):
-                    domain = domain[4:]
-                return domain if domain else "unknown"
-                
-        except Exception as e:
-            logger.warning(f"Could not parse source from URL {url}: {str(e)}")
-            return "unknown"
+        url_lower = url.lower()
         
+        if 'banki' in url_lower:
+            return 'Banki.ru'
+        elif 'sravni' in url_lower:
+            return 'Sravni.ru'
+        elif 'imported_from_jsonl' in url_lower:
+            return 'JSONL Import'
+        elif 'manual' in url_lower:
+            return 'Manual Input'
+        else:
+            return 'Other'
     def _parse_rating(self, rating_str: str) -> int:
         """Парсит строку с рейтингом в число для обоих источников"""
         if not rating_str or rating_str == 'Без оценки':
