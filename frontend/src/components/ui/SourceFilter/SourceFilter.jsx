@@ -29,8 +29,7 @@ const SourceFilter = ({ source, onSourceChange }) => {
     const sourceOptions = [
         { value: null, label: 'Все источники' },
         { value: 'Banki.ru', label: 'Banki.ru' },
-        { value: 'App Store', label: 'App Store' },
-        { value: 'Google Play', label: 'Google Play' },
+        { value: 'Sravni.ru', label: 'Sravni.ru' },
     ];
 
     const getDisplayText = () => {
