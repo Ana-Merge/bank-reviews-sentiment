@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
-import { setShowComparison, setSavedPeriod2 } from "../../../store/slices/dateSlice";
+import { setSavedPeriod2 } from "../../../store/slices/dateSlice";
 import styles from "./DateFilter.module.scss";
 
 const DateFilter = ({
@@ -16,13 +16,15 @@ const DateFilter = ({
     onDateErrorsChange
 }) => {
     const dispatch = useAppDispatch();
-    const { showComparison, savedPeriod2 } = useAppSelector(state => state.date);
+    const { savedPeriod2 } = useAppSelector(state => state.date);
 
     const [errors, setErrors] = useState({});
     const [warnings, setWarnings] = useState({});
     const [prevAggregationType, setPrevAggregationType] = useState(aggregationType);
     const MIN_DATE = "2024-01-01";
     const MAX_DATE = "2025-05-31";
+
+    const hasComparisonPeriod = startDate2 !== "2026-01-01" && endDate2 !== "2026-01-01";
 
     const roundToMonthStart = (dateString) => {
         const date = new Date(dateString);
@@ -288,7 +290,7 @@ const DateFilter = ({
             'period1'
         );
 
-        if (showComparison) {
+        if (hasComparisonPeriod) {
             validateDateRange(
                 formatDateForInput(startDate2, aggregationType),
                 formatDateForInput(endDate2, aggregationType),
@@ -299,7 +301,7 @@ const DateFilter = ({
         }
 
         validatePeriodLengths();
-    }, [startDate, endDate, startDate2, endDate2, aggregationType, showComparison]);
+    }, [startDate, endDate, startDate2, endDate2, aggregationType, hasComparisonPeriod]);
 
     const handleStartDateChange = (inputValue) => {
         const parsedDate = parseDateFromInput(inputValue, aggregationType);
@@ -322,21 +324,20 @@ const DateFilter = ({
     };
 
     const handleComparisonToggle = () => {
-        const newShowComparison = !showComparison;
-
-        if (newShowComparison) {
-            onStartDate2Change(savedPeriod2.startDate2);
-            onEndDate2Change(savedPeriod2.endDate2);
-        } else {
+        if (hasComparisonPeriod) {
             dispatch(setSavedPeriod2({
                 startDate2: startDate2,
                 endDate2: endDate2
             }));
             onStartDate2Change("2026-01-01");
             onEndDate2Change("2026-01-01");
-        }
+        } else {
+            const defaultStartDate2 = savedPeriod2.startDate2 || "2024-12-01";
+            const defaultEndDate2 = savedPeriod2.endDate2 || "2025-02-28";
 
-        dispatch(setShowComparison(newShowComparison));
+            onStartDate2Change(defaultStartDate2);
+            onEndDate2Change(defaultEndDate2);
+        }
     };
 
     const { min, max } = getMinMaxForAggregation(aggregationType);
@@ -384,7 +385,7 @@ const DateFilter = ({
                     {errors.period1Range && <div className={styles.rangeError}>{errors.period1Range}</div>}
                 </div>
 
-                {showComparison && (
+                {hasComparisonPeriod && (
                     <div className={styles.periodSection}>
                         <h4 className={styles.periodTitle}>Период для сравнения</h4>
                         <div className={styles.periodControls}>
@@ -426,17 +427,17 @@ const DateFilter = ({
                     className={styles.toggleButton}
                     onClick={handleComparisonToggle}
                 >
-                    {showComparison ? 'Убрать период для сравнения' : 'Добавить период для сравнения'}
+                    {hasComparisonPeriod ? 'Убрать период для сравнения' : 'Добавить период для сравнения'}
                 </button>
             </div>
 
-            {showComparison && errors.period2BeforePeriod1 && (
+            {hasComparisonPeriod && errors.period2BeforePeriod1 && (
                 <div className={styles.periodOrderError}>
                     {errors.period2BeforePeriod1}
                 </div>
             )}
 
-            {showComparison && warnings.periodLengthMismatch && (
+            {hasComparisonPeriod && warnings.periodLengthMismatch && (
                 <div className={styles.periodLengthHint}>
                     {warnings.periodLengthMismatch}
                 </div>

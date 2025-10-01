@@ -28,8 +28,7 @@ const ProductPage = () => {
         endDate2,
         aggregationType,
         source,
-        dateErrors,
-        showComparison
+        dateErrors
     } = useAppSelector(state => state.date);
 
     const {
@@ -45,6 +44,8 @@ const ProductPage = () => {
         errorChangeChart,
         errorTonalityChart
     } = useAppSelector(state => state.chart);
+
+    const hasComparisonPeriod = startDate2 !== "2026-01-01" && endDate2 !== "2026-01-01";
 
     useEffect(() => {
         dispatch(fetchProductTree());
@@ -72,22 +73,19 @@ const ProductPage = () => {
 
         const productId = selectedProduct.id;
 
-        const effectiveStartDate2 = showComparison ? startDate2 : "2026-01-01";
-        const effectiveEndDate2 = showComparison ? endDate2 : "2026-01-01";
-
         dispatch(fetchChangeChartData({
             productId,
             startDate,
             endDate,
-            startDate2: effectiveStartDate2,
-            endDate2: effectiveEndDate2,
+            startDate2,
+            endDate2,
             source
         }));
         dispatch(fetchProductStats({
             startDate,
             endDate,
-            startDate2: effectiveStartDate2,
-            endDate2: effectiveEndDate2,
+            startDate2,
+            endDate2,
             selectedProduct,
             categoryId,
             source
@@ -96,8 +94,8 @@ const ProductPage = () => {
             productId,
             startDate,
             endDate,
-            startDate2: effectiveStartDate2,
-            endDate2: effectiveEndDate2,
+            startDate2,
+            endDate2,
             aggregationType,
             source
         }));
@@ -105,12 +103,12 @@ const ProductPage = () => {
             productId,
             startDate,
             endDate,
-            startDate2: effectiveStartDate2,
-            endDate2: effectiveEndDate2,
+            startDate2,
+            endDate2,
             aggregationType,
             source
         }));
-    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, source, dateErrors, dispatch, categoryId, showComparison]);
+    }, [startDate, endDate, startDate2, endDate2, selectedProduct, aggregationType, source, dateErrors, dispatch, categoryId]);
 
     const handleProductSelect = (product) => {
         dispatch(setSelectedProduct(product));
@@ -212,7 +210,7 @@ const ProductPage = () => {
                         error={errorChangeChart}
                         data={changeChartData}
                         productName={selectedProduct?.name}
-                        showComparison={showComparison}
+                        showComparison={hasComparisonPeriod}
                     />
 
                     <BarChartSection
@@ -221,7 +219,7 @@ const ProductPage = () => {
                         data={barChartData}
                         aggregationType={aggregationType}
                         productName={selectedProduct?.name}
-                        showComparison={showComparison}
+                        showComparison={hasComparisonPeriod}
                     />
 
                     <TonalityChartSection
@@ -230,14 +228,14 @@ const ProductPage = () => {
                         data={tonalityChartData}
                         aggregationType={aggregationType}
                         productName={selectedProduct?.name}
-                        showComparison={showComparison}
+                        showComparison={hasComparisonPeriod}
                     />
 
                     <TableSection
                         isLoading={isLoadingProduct}
                         error={errorProduct}
                         data={productStats}
-                        showComparison={showComparison}
+                        showComparison={hasComparisonPeriod}
                     />
                 </>
             )}
