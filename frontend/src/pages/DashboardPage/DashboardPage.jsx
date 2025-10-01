@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../hooks/redux";
 import { authService } from "../../services/auth";
@@ -35,106 +35,101 @@ const getAllChildProducts = (productTree, productId) => {
     return findProductAndDirectChildren(productTree, productId);
 };
 
+const findProductInTree = (nodes, targetId) => {
+    for (let node of nodes) {
+        if (node.id === targetId) {
+            return node;
+        }
+        if (node.children) {
+            const found = findProductInTree(node.children, targetId);
+            if (found) return found;
+        }
+    }
+    return null;
+};
+
 const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
     const [chartData, setChartData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [selectedProduct, setSelectedProduct] = useState(null);
-    const [childProducts, setChildProducts] = useState([]);
+
+    const loadChartData = useCallback(async (product, children) => {
+        if (!chartConfig || !product) return;
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const { type, attributes } = chartConfig;
+            const {
+                date_start_1, date_end_1, date_start_2, date_end_2,
+                product_id, source, aggregation_type
+            } = attributes;
+
+            let data;
+
+            switch (type) {
+                case 'product_stats':
+                    if (children && children.length > 0) {
+                        const productStatsPromises = children.map(childProduct =>
+                            apiService.getProductStats(
+                                date_start_1, date_end_1, date_start_2, date_end_2,
+                                childProduct.id, null, source || null
+                            )
+                        );
+
+                        const results = await Promise.all(productStatsPromises);
+                        data = results.flat().filter(item => item != null);
+                    } else {
+                        data = await apiService.getProductStats(
+                            date_start_1, date_end_1, date_start_2, date_end_2,
+                            product_id, null, source || null
+                        );
+                        if (data && !Array.isArray(data)) {
+                            data = [];
+                        }
+                    }
+                    break;
+                case 'monthly-review-count':
+                    data = await apiService.getReviewTonality(
+                        product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                        aggregation_type, source || null
+                    );
+                    break;
+                case 'regional-bar-chart':
+                    data = await apiService.getBarChartChanges(
+                        product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                        aggregation_type, source || null
+                    );
+                    break;
+                case 'change-chart':
+                    data = await apiService.getChangeChart(
+                        product_id, date_start_1, date_end_1, date_start_2, date_end_2,
+                        source || null
+                    );
+                    break;
+                default:
+                    throw new Error(`Unknown chart type: ${type}`);
+            }
+
+            setChartData(data);
+        } catch (err) {
+            setError(`Ошибка загрузки данных: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [chartConfig]);
 
     useEffect(() => {
         if (!chartConfig || !productTree) return;
 
-        const findProduct = (nodes) => {
-            for (let node of nodes) {
-                if (node.id === chartConfig.attributes.product_id) {
-                    return node;
-                }
-                if (node.children) {
-                    const found = findProduct(node.children);
-                    if (found) return found;
-                }
-            }
-            return null;
-        };
-
-        const product = findProduct(productTree);
-        setSelectedProduct(product);
+        const product = findProductInTree(productTree, chartConfig.attributes.product_id);
 
         if (product) {
             const children = getAllChildProducts(productTree, product.id);
-            setChildProducts(children);
+            loadChartData(product, children);
         }
-    }, [chartConfig, productTree]);
-
-    useEffect(() => {
-        if (!chartConfig || !selectedProduct) return;
-
-        const fetchChartData = async () => {
-            setIsLoading(true);
-            setError(null);
-
-            try {
-                const { type, attributes } = chartConfig;
-                const {
-                    date_start_1, date_end_1, date_start_2, date_end_2,
-                    product_id, source, aggregation_type
-                } = attributes;
-
-                let data;
-
-                switch (type) {
-                    case 'product_stats':
-                        if (childProducts.length > 0) {
-                            const productStatsPromises = childProducts.map(childProduct =>
-                                apiService.getProductStats(
-                                    date_start_1, date_end_1, date_start_2, date_end_2,
-                                    childProduct.id, null, source || null
-                                )
-                            );
-
-                            const results = await Promise.all(productStatsPromises);
-                            data = results.flat();
-                        } else {
-                            data = await apiService.getProductStats(
-                                date_start_1, date_end_1, date_start_2, date_end_2,
-                                product_id, null, source || null
-                            );
-                        }
-                        break;
-                    case 'monthly-review-count':
-                        data = await apiService.getReviewTonality(
-                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
-                            aggregation_type, source || null
-                        );
-                        break;
-                    case 'regional-bar-chart':
-                        data = await apiService.getBarChartChanges(
-                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
-                            aggregation_type, source || null
-                        );
-                        break;
-                    case 'change-chart':
-                        data = await apiService.getChangeChart(
-                            product_id, date_start_1, date_end_1, date_start_2, date_end_2,
-                            source || null
-                        );
-                        break;
-                    default:
-                        throw new Error(`Unknown chart type: ${type}`);
-                }
-
-                setChartData(data);
-            } catch (err) {
-                setError(`Ошибка загрузки данных: ${err.message}`);
-                console.error("Failed to load chart data:", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchChartData();
-    }, [chartConfig, selectedProduct, childProducts]);
+    }, [chartConfig, productTree, loadChartData]);
 
     const handleDelete = () => {
         if (onDelete && chartConfig.id) {
@@ -188,7 +183,7 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
         );
     }
 
-    if (!chartData || !selectedProduct) {
+    if (!chartData || !chartConfig) {
         return (
             <div className={styles.chartSection}>
                 <div className={styles.noData}>Нет данных для отображения</div>
@@ -205,15 +200,22 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
         date_end_2
     } = attributes;
 
+    const product = findProductInTree(productTree, chartConfig.attributes.product_id);
     const commonProps = {
-        productName: selectedProduct.name,
+        productName: product?.name || '',
         showComparison: hasComparisonPeriod()
     };
 
     const renderChartContent = () => {
         switch (type) {
             case 'product_stats':
-                return <ProductAnalyticsTable productStats={chartData} showComparison={hasComparisonPeriod()} />;
+                const safeProductStats = Array.isArray(chartData) ? chartData : [];
+                return (
+                    <ProductAnalyticsTable
+                        productStats={safeProductStats}
+                        showComparison={hasComparisonPeriod()}
+                    />
+                );
             case 'monthly-review-count':
                 return (
                     <TonalityChart
@@ -250,7 +252,7 @@ const ChartRenderer = ({ chartConfig, onDelete, onEdit, productTree }) => {
                         {type === 'product_stats' && (
                             <div className={styles.filterItem}>
                                 <span className={styles.filterLabel}>Продукт:</span>
-                                <span className={styles.filterValue}>{selectedProduct.name}</span>
+                                <span className={styles.filterValue}>{product?.name}</span>
                             </div>
                         )}
                         <div className={styles.filterItem}>
@@ -310,15 +312,14 @@ const DashboardPage = () => {
     const [editingChart, setEditingChart] = useState(null);
 
     useEffect(() => {
-        if (isAuthenticated && token && pageId) {
-            loadPage();
-        }
         if (!productTree) {
             dispatch(fetchProductTree());
         }
-    }, [isAuthenticated, token, pageId, dispatch, productTree]);
+    }, [dispatch, productTree]);
 
-    const loadPage = async () => {
+    const loadPage = useCallback(async () => {
+        if (!isAuthenticated || !token || !pageId) return;
+
         setIsLoading(true);
         setError(null);
 
@@ -333,11 +334,14 @@ const DashboardPage = () => {
             }
         } catch (err) {
             setError(`Ошибка загрузки страницы: ${err.message}`);
-            console.error("Failed to load page:", err);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [isAuthenticated, token, pageId]);
+
+    useEffect(() => {
+        loadPage();
+    }, [loadPage]);
 
     const handleAddChart = async (chartData) => {
         try {
@@ -357,7 +361,6 @@ const DashboardPage = () => {
             setShowAddModal(false);
         } catch (err) {
             setError(`Ошибка добавления графика: ${err.message}`);
-            console.error("Failed to add chart:", err);
         }
     };
 
@@ -381,7 +384,6 @@ const DashboardPage = () => {
             setEditingChart(null);
         } catch (err) {
             setError(`Ошибка редактирования графика: ${err.message}`);
-            console.error("Failed to edit chart:", err);
         }
     };
 
@@ -406,7 +408,6 @@ const DashboardPage = () => {
             setPage(updatedPage);
         } catch (err) {
             setError(`Ошибка удаления графика: ${err.message}`);
-            console.error("Failed to delete chart:", err);
         }
     };
 
