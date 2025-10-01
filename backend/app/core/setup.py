@@ -1,5 +1,7 @@
+# [file name]: setup.py
 import logging
 import sys
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +17,9 @@ from app.services.auth_services import (
 from app.services.stats_service import StatsService
 from app.services.parser_service import ParserService
 from app.services.notification_service import NotificationService
+from app.services.data_initializer import DataInitializer
+from app.scripts.jsonl_loader import JSONLLoader
+
 from app.repositories.user_repositories import UserRepository
 from app.repositories.repositories import (
     ProductRepository, ReviewRepository, MonthlyStatsRepository,
@@ -133,6 +138,12 @@ def _setup_app_dependencies(app: FastAPI, settings: AppSettings):
     app.state.notification_service = notification_service
     parser_service = ParserService(reviews_for_model_repository)
     app.state.parser_service = parser_service
+    
+    # ДОБАВИТЬ инициализацию загрузчика данных
+    jsonl_loader = JSONLLoader(reviews_for_model_repository)
+    data_initializer = DataInitializer()
+    app.state.jsonl_loader = jsonl_loader
+    app.state.data_initializer = data_initializer
 
 @asynccontextmanager
 async def _app_lifespan(app: FastAPI):
@@ -141,6 +152,19 @@ async def _app_lifespan(app: FastAPI):
     db: DatabaseManager = app.state.database_manager
     await db.initialize()
     logger.info("База данных инициализирована")
+
+    # ЗАГРУЗКА ДАННЫХ ИЗ JSONL ПРИ СТАРТЕ
+    if os.getenv('SKIP_JSONL_LOAD', 'false').lower() != 'true':
+        logger.info("Запуск инициализации данных из JSONL файлов")
+        try:
+            async with app.state.database_manager.async_session() as session:
+                initializer = app.state.data_initializer
+                results = await initializer.initialize_data(session)
+                logger.info(f"Инициализация данных завершена: {results}")
+        except Exception as e:
+            logger.error(f"Ошибка при инициализации данных: {str(e)}", exc_info=True)
+    else:
+        logger.info("Пропуск загрузки JSONL данных (SKIP_JSONL_LOAD=true)")
 
     # Запуск планировщика задач
     scheduler = AsyncIOScheduler()

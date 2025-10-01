@@ -657,6 +657,34 @@ class ReviewsForModelRepository:
         
         return len(reviews_to_save)
 
+    async def bulk_create_from_jsonl(self, session: AsyncSession, reviews_data: List[Dict]) -> int:
+        """Массовое создание записей из JSONL данных"""
+        reviews_to_save = []
+        
+        for review_data in reviews_data:
+            review = ReviewsForModel(
+                bank_name=review_data.get('bank_name', ''),
+                bank_slug=review_data.get('bank_slug', ''),
+                product_name=review_data.get('product_name', 'general'),
+                review_theme=review_data.get('review_theme', ''),
+                rating=review_data.get('rating', ''),
+                verification_status=review_data.get('verification_status', ''),
+                review_text=review_data.get('review_text', ''),
+                review_date=review_data.get('review_date', ''),
+                review_timestamp=review_data.get('review_timestamp'),
+                source_url=review_data.get('source_url', ''),
+                parsed_at=review_data.get('parsed_at'),
+                processed=review_data.get('processed', False),
+                additional_data=review_data.get('additional_data', {})
+            )
+            reviews_to_save.append(review)
+        
+        if reviews_to_save:
+            session.add_all(reviews_to_save)
+            await session.flush()
+        
+        return len(reviews_to_save)
+
 class AuditLogRepository:
     async def save(self, session: AsyncSession, user_id: Optional[int], action: str) -> AuditLog:
         log = AuditLog(user_id=user_id, action=action)

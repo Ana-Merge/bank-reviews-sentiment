@@ -146,7 +146,9 @@ class ParserService:
                     if rating == 0:
                         continue
                     
+                    # ОПРЕДЕЛЯЕМ ТОНАЛЬНОСТЬ ОДИН РАЗ ДЛЯ ВСЕХ ТАБЛИЦ
                     sentiment = self._determine_sentiment(rating)
+                    sentiment_score = self._calculate_sentiment_score(sentiment)
                     
                     review_date = self._parse_review_date(parsed_review.review_date)
                     if not review_date:
@@ -154,20 +156,28 @@ class ParserService:
                     
                     source = self._parse_source_from_url(parsed_review.source_url)
                     
-                    from app.models.models import Review
+                    from app.models.models import Review, ReviewProduct
+                    # Создаем отзыв
                     review = Review(
                         text=parsed_review.review_text,
                         date=review_date,
                         rating=rating,
-                        sentiment=sentiment,
-                        sentiment_score=self._calculate_sentiment_score(sentiment),
+                        sentiment=sentiment,  # Тональность для таблицы reviews
+                        sentiment_score=sentiment_score,  # Score для таблицы reviews
                         source=source
                     )
                     
                     saved_review = await review_repo.save(session, review)
-                    await review_repo.add_products_to_review(
-                        session, saved_review.id, [product.id]
+                    
+                    # Создаем связь в review_products с ТАКОЙ ЖЕ тональностью
+                    review_product = ReviewProduct(
+                        review_id=saved_review.id,
+                        product_id=product.id,
+                        sentiment=sentiment,  # ТА ЖЕ тональность что и в reviews
+                        sentiment_score=sentiment_score  # ТОТ ЖЕ score что и в reviews
                     )
+                    session.add(review_product)
+                    await session.flush()
                     
                     reviews_created += 1
                     review_ids_to_mark.append(parsed_review.id)
@@ -206,9 +216,9 @@ class ParserService:
         try:
             url_lower = url.lower()
             
-            if 'banki.ru' in url_lower:
+            if 'banki' in url_lower:
                 return "Banki.ru"
-            elif 'sravni.ru' in url_lower:
+            elif 'sravni' in url_lower:
                 return "Sravni.ru"
             else:
                 from urllib.parse import urlparse
@@ -286,7 +296,7 @@ class ParserService:
         elif rating >= 1:
             return "negative"
         else:
-            return "neutral"
+            return "neutral"  # fallback
 
     def _calculate_sentiment_score(self, sentiment: str) -> float:
         """Рассчитывает числовой score тональности"""
@@ -296,8 +306,6 @@ class ParserService:
             "negative": -0.8
         }
         return scores.get(sentiment, 0.0)
-
-
 
     async def run_sravni_parser(
         self, 
