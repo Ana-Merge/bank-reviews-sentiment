@@ -207,7 +207,42 @@
   }
 }
 
+.downloadBtn {
+  @include btn;
+  gap: 20px;
+  padding: 16px 24px;
+  margin: 0 20px;
+
+  @media (max-width: 1440px) {
+    gap: 18px;
+    padding: 14px 20px;
+    margin: 0 18px;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 16px;
+    padding: 12px 18px;
+    margin: 0 16px;
+  }
+}
+
 .predictText {
+  font-family: vars.$font-family-base;
+  font-weight: vars.$font-weight-medium;
+  font-size: vars.$font-size-lg;
+  color: vars.$color-text;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.downloadText {
   font-family: vars.$font-family-base;
   font-weight: vars.$font-weight-medium;
   font-size: vars.$font-size-lg;
@@ -241,6 +276,7 @@
 }
 
 .predictBtn img,
+.downloadBtn img,
 .iconBtn img {
   width: 24px;
   height: 24px;

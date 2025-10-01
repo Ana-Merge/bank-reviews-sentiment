@@ -6,8 +6,8 @@ import { navItems } from "../../../constants/navigation";
 import { AuthModal } from "../../../components";
 import styles from "./Header.module.scss";
 import gazpromLogo from "/gazprom-logo.png";
-import uploadIcon from "../../../assets/icons/upload.svg";
-import searchIcon from "../../../assets/icons/icon-search.svg";
+import uploadIcon from "../../../assets/icons/icon-upload.svg";
+import downloadIcon from "../../../assets/icons/icon-download.svg";
 import accountIcon from "../../../assets/icons/icon-account.svg";
 
 const Header = () => {
@@ -59,6 +59,14 @@ const Header = () => {
     }
   };
 
+  const handleDownload = () => {
+    // логика скачивания
+  };
+
+  const handlePredict = () => {
+    // логика загрузки
+  };
+
   return (
     <>
       <header className={styles.header}>
@@ -71,13 +79,22 @@ const Header = () => {
           </div>
 
           <div className={styles.actionsContainer}>
-            <button className={styles.predictBtn} aria-label="Предсказать">
+            <button
+              className={styles.predictBtn}
+              aria-label="Предсказать"
+              onClick={handlePredict}
+            >
               <span className={styles.predictText}>Предсказать</span>
               <img src={uploadIcon} alt="" width={20} height={20} />
             </button>
 
-            <button className={styles.iconBtn} aria-label="Поиск">
-              <img src={searchIcon} alt="" width={20} height={20} />
+            <button
+              className={styles.downloadBtn}
+              aria-label="Скачать"
+              onClick={handleDownload}
+            >
+              <span className={styles.downloadText}>Скачать</span>
+              <img src={downloadIcon} alt="" width={20} height={20} />
             </button>
 
             <div className={styles.accountSection}>
