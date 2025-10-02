@@ -69,9 +69,6 @@ class BankiRuParser:
                 
                 title_link = x.find('h3', class_='TextResponsive__sc-hroye5-0')
                 review_theme = title_link.get_text(strip=True) if title_link else ''
-                # Обрезаем тему отзыва до 500 символов
-                if len(review_theme) > 500:
-                    review_theme = review_theme[:497] + "..."
 
                 grade_div = x.find('div', class_='Grade__sc-m0t12o-0')
                 rating = grade_div.get_text(strip=True) if grade_div else 'Без оценки'

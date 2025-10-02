@@ -7,7 +7,6 @@ from app.services.stats_service import StatsService
 from fastapi.security import OAuth2PasswordBearer
 from app.models.user_models import User
 
-# Схема OAuth2 для аутентификации по токену
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
@@ -69,7 +68,6 @@ async def get_current_user(
     """
     return await auth_service.get_current_user(token, session)
 
-# Аннотированные типы для зависимостей
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 PasswordServiceDep = Annotated[PasswordService, Depends(get_password_service)]

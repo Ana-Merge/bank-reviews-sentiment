@@ -36,13 +36,6 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v):
-        if len(v) > 150:
-            raise ValueError("Название продукта слишком длинное")
-        return v
-
 class ProductCreate(ProductBase):
     pass
 
@@ -146,12 +139,6 @@ class ReviewBulkItem(BaseModel):
     id: int
     text: NonEmptyStr
 
-    @field_validator("text")
-    @classmethod
-    def validate_text(cls, v):
-        if len(v) > 1000:
-            raise ValueError("Текст отзыва слишком большой")
-        return v
     
 class ReviewBulkCreate(BaseModel):
     data: List[ReviewBulkItem]
@@ -161,8 +148,6 @@ class ReviewBulkCreate(BaseModel):
     def validate_data(cls, v):
         if not v:
             raise ValueError("Массив не должен быть пустым")
-        if len(v) > 1000:
-            raise ValueError("Слишком много отзывов, должно быть меньше 1000")
         ids = [item.id for item in v]
         if len(ids) != len(set(ids)):
             raise ValueError("Дубликат IDs в данных")
@@ -269,6 +254,8 @@ class NotificationConfigBase(BaseModel):
         if v not in ["daily", "weekly", "monthly"]:
             raise ValueError("Period must be daily, weekly or monthly")
         return v
+    
+
 class NotificationCreate(NotificationBase):
     pass
 class NotificationConfigCreate(NotificationConfigBase):
@@ -314,10 +301,12 @@ class PeriodPieData(BaseModel):
     data: List[float]
     colors: List[str]
     total: int
+    absolute_data: Dict[str, int]
 
 class ChangesPieData(BaseModel):
     labels: List[str]
     percentage_point_changes: List[float]
+    absolute_changes: Dict[str, int]
 
 class ChangeChartResponse(BaseModel):
     total: int
@@ -328,6 +317,7 @@ class MonthlyPieChartResponse(BaseModel):
     period2: PeriodPieData
     changes: ChangesPieData
 
+
 class SmallBarChartsResponse(BaseModel):
     title: str
     reviews_count: int
@@ -335,6 +325,16 @@ class SmallBarChartsResponse(BaseModel):
     data: List[Dict[str, Any]]
 
 class TonalityStackedBarsResponse(BaseModel):
+
     period1: List[Dict[str, Any]]
     period2: List[Dict[str, Any]]
     changes: List[Dict[str, Any]]
+
+
+class ReviewPrediction(BaseModel):
+    id: int
+    topics: List[str]
+    sentiments: List[str]
+
+class ReviewAnalysisResponse(BaseModel):
+    predictions: List[ReviewPrediction]
