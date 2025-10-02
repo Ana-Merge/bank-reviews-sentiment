@@ -1,5 +1,3 @@
-# [file name]: jsonl_loader.py
-# [file content begin]
 import json
 import logging
 import os
@@ -91,24 +89,80 @@ class JSONLLoader:
 
     def _transform_review_data(self, review_data: Dict[str, Any], source: str) -> Dict[str, Any]:
         """
-        Преобразует данные из JSONL в формат для ReviewsForModel
-        ВАЖНО: Сохраняем ОРИГИНАЛЬНЫЕ английские названия продуктов!
+        Преобразует данные из нового формата JSONL в формат для ReviewsForModel
         """
-        # Парсим дату
+        try:
+            # Новый формат: {"data": {...}, "predictions": {...}}
+            data = review_data.get('data', {})
+            predictions = review_data.get('predictions', {})
+            
+            # Получаем массивы из predictions - исправляем ключ с двоеточием
+            topics = predictions.get('topics', [])
+            sentiments = predictions.get('sentiments', [])
+            sources = predictions.get('sources', [])
+            # ИСПРАВЛЕНИЕ: используем правильный ключ с двоеточием
+            review_dates = predictions.get('review_dates:', []) or predictions.get('review_dates', [])
+            ratings = predictions.get('ratings', [])
+            
+            # Используем первый элемент массивов для основной записи
+            primary_topic = topics[0] if topics else 'general'
+            primary_sentiment = sentiments[0] if sentiments else 'нейтральная'
+            primary_source = sources[0] if sources else 'unknown'
+            primary_date = review_dates[0] if review_dates else ''
+            primary_rating = ratings[0] if ratings else 'Без оценки'
+            
+            # Парсим дату
+            review_timestamp = self._parse_review_date(primary_date)
+            
+            # Создаем bank_slug из bank_name если не указан
+            bank_name = data.get('bank_name', '')
+            bank_slug = data.get('bank_slug') or self._create_bank_slug(bank_name)
+            
+            return {
+                'bank_name': bank_name,
+                'bank_slug': bank_slug,
+                'product_name': primary_topic,  # Основной продукт для фильтрации
+                'review_theme': data.get('review_theme', ''),
+                'rating': str(primary_rating),
+                'verification_status': data.get('verification_status', ''),
+                'review_text': data.get('text', ''),
+                'review_date': primary_date,  # Сохраняем дату в основное поле
+                'review_timestamp': review_timestamp,
+                'source_url': data.get('source_url', 'unknown'),
+                'parsed_at': datetime.utcnow(),
+                'processed': False,
+                'additional_data': {
+                    'source': source,
+                    'original_data': data,
+                    'predictions': predictions,
+                    'all_topics': topics,  # Сохраняем все топики
+                    'all_sentiments': sentiments,  # Сохраняем все sentiments
+                    'all_sources': sources,  # Сохраняем все sources
+                    'all_review_dates': review_dates,  # Сохраняем все даты
+                    'all_ratings': ratings,  # Сохраняем все рейтинги
+                    'import_timestamp': datetime.utcnow().isoformat()
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error transforming review data: {str(e)}")
+            # Fallback для старого формата
+            return self._transform_old_format(review_data, source)
+
+    def _transform_old_format(self, review_data: Dict[str, Any], source: str) -> Dict[str, Any]:
+        """
+        Обработка старого формата JSONL для обратной совместимости
+        """
         review_date = review_data.get('review_date', '')
         review_timestamp = self._parse_review_date(review_date)
-
-        # Сохраняем ОРИГИНАЛЬНОЕ английское название продукта
-        english_product_name = review_data.get('topic', 'general')
         
-        # Создаем bank_slug из bank_name если не указан
+        english_product_name = review_data.get('topic', 'general')
         bank_name = review_data.get('bank_name', '')
         bank_slug = review_data.get('bank_slug') or self._create_bank_slug(bank_name)
-
+        
         return {
             'bank_name': bank_name,
             'bank_slug': bank_slug,
-            'product_name': english_product_name,  # Сохраняем ОРИГИНАЛЬНОЕ английское название
+            'product_name': english_product_name,
             'review_theme': review_data.get('review_theme', '')[:5000],
             'rating': str(review_data.get('rating', 'Без оценки')),
             'verification_status': review_data.get('verification_status', ''),
@@ -181,4 +235,3 @@ class JSONLLoader:
         
         slug_result = ''.join(result)
         return slug_result if slug_result else 'unknown'
-# [file content end]

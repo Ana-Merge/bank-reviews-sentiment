@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import date
+from datetime import date, datetime
 from app.services.parser_config import ParserConfig
 from app.services.banki_parser import BankiRuParser
 from app.repositories.repositories import ReviewsForModelRepository
@@ -86,13 +86,10 @@ class ParserService:
         self,
         session: AsyncSession,
         bank_slug: str,
-        product_name: str,  # Это оригинальное английское название из reviews_for_model
+        product_name: str,
         limit: int = 10000,
         mark_processed: bool = True
     ) -> Dict[str, Any]:
-        """
-        Обработка спарсенных отзывов и перенос в основные таблицы
-        """
         try:
             logger.info(f"Starting processing for bank_slug: {bank_slug}, product_name: {product_name}")
             
@@ -126,95 +123,149 @@ class ParserService:
             product_repo = ProductRepository()
             review_repo = ReviewRepository()
             
-            # ПЕРЕВОДИМ АНГЛИЙСКОЕ НАЗВАНИЕ НА РУССКОЕ
-            russian_product_name = self._translate_product_name(product_name)
-            logger.info(f"Translated product name: '{product_name}' -> '{russian_product_name}'")
-            
-            # ПОЛУЧАЕМ РОДИТЕЛЯ ДЛЯ ПРОДУКТА
-            parent_product = await self._get_or_create_parent_product(session, product_repo, russian_product_name)
-            if parent_product:
-                logger.info(f"Parent product: {parent_product.name} (id: {parent_product.id})")
-            
-            # ИЩЕМ ИЛИ СОЗДАЕМ ПРОДУКТ С РУССКИМ НАЗВАНИЕМ
-            product = await product_repo.get_by_name(session, russian_product_name)
-            products_created = 0
-            
-            if not product:
-                from app.models.models import Product, ProductType, ClientType
-                
-                # ОПРЕДЕЛЯЕМ ТИП ПРОДУКТА И УРОВЕНЬ
-                product_type, level = self._determine_product_type_and_level(russian_product_name, parent_product)
-                
-                logger.info(f"Creating new product: {russian_product_name}, type: {product_type}, level: {level}")
-                
-                product = Product(
-                    name=russian_product_name,
-                    type=product_type,
-                    client_type=ClientType.BOTH,
-                    level=level,
-                    parent_id=parent_product.id if parent_product else None
-                )
-                product = await product_repo.save(session, product)
-                products_created = 1
-                logger.info(f"Created new product: {russian_product_name} (id: {product.id})")
-            else:
-                logger.info(f"Product already exists: {russian_product_name} (id: {product.id})")
-            
             # Обрабатываем отзывы
             reviews_created = 0
             review_ids_to_mark = []
+            products_created_count = 0
             
             for i, parsed_review in enumerate(filtered_reviews):
                 try:
                     logger.info(f"Processing review {i+1}/{len(filtered_reviews)}: ID {parsed_review.id}")
                     
-                    # Пропускаем отзывы с оценкой 0
-                    rating = self._parse_rating(parsed_review.rating)
-                    logger.info(f"Parsed rating: {parsed_review.rating} -> {rating}")
+                    # Парсим дополнительные данные из JSON
+                    additional_data = parsed_review.additional_data or {}
+                    predictions = additional_data.get('predictions', {})
+                    
+                    # Получаем массивы из predictions - исправляем ключи
+                    topics = predictions.get('all_topics', []) or predictions.get('topics', [])
+                    sentiments = predictions.get('all_sentiments', []) or predictions.get('sentiments', [])
+                    sources = predictions.get('all_sources', []) or predictions.get('sources', [])
+                    
+                    # ИСПРАВЛЕНИЕ: используем правильный ключ с двоеточием
+                    review_dates = predictions.get('all_review_dates', []) or predictions.get('review_dates:', []) or predictions.get('review_dates', [])
+                    ratings = predictions.get('all_ratings', []) or predictions.get('ratings', [])
+                    
+                    logger.info(f"Topics: {topics}, Sentiments: {sentiments}, Sources: {sources}")
+                    logger.info(f"Review dates found: {review_dates}, Ratings: {ratings}")
+                    
+                    # Если нет топиков, пропускаем отзыв
+                    if not topics:
+                        logger.warning(f"Skipping review {parsed_review.id}: no topics found")
+                        continue
+                    
+                    # Используем первый элемент массивов для создания основной записи Review
+                    primary_source = sources[0] if sources else "unknown"
+                    
+                    # ПРИОРИТЕТ ДЛЯ ДАТЫ: сначала из predictions, потом из основной записи
+                    if review_dates:
+                        primary_date_str = review_dates[0]
+                        logger.info(f"Using date from predictions: {primary_date_str}")
+                    else:
+                        primary_date_str = parsed_review.review_date
+                        logger.info(f"Using date from main record: {primary_date_str}")
+                    
+                    # Если все равно нет даты, используем parsed_at как fallback
+                    if not primary_date_str:
+                        primary_date_str = parsed_review.parsed_at.strftime('%d.%m.%Y %H:%M')
+                        logger.info(f"Using parsed_at as fallback date: {primary_date_str}")
+                    
+                    primary_rating_str = ratings[0] if ratings else parsed_review.rating
+                    
+                    logger.info(f"Using primary source: {primary_source}, date: {primary_date_str}, rating: {primary_rating_str}")
+                    
+                    # Парсим рейтинг и дату для основной записи
+                    rating = self._parse_rating(primary_rating_str)
+                    logger.info(f"Parsed rating: {primary_rating_str} -> {rating}")
                     
                     if rating == 0:
                         logger.info(f"Skipping review with rating 0: {parsed_review.id}")
                         continue
                     
-                    sentiment = self._determine_sentiment(rating)
-                    sentiment_score = self._calculate_sentiment_score(sentiment)
-                    logger.info(f"Determined sentiment: {sentiment}, score: {sentiment_score}")
-                    
-                    review_date = self._parse_review_date(parsed_review.review_date)
+                    review_date = self._parse_review_date(primary_date_str)
                     if not review_date:
-                        logger.warning(f"Could not parse date: {parsed_review.review_date}")
-                        continue
+                        # Если не удалось распарсить, используем parsed_at как последний fallback
+                        logger.warning(f"Could not parse date: {primary_date_str}, using parsed_at")
+                        review_date = parsed_review.parsed_at.date()
                     
-                    logger.info(f"Parsed date: {parsed_review.review_date} -> {review_date}")
+                    logger.info(f"Final date for review: {review_date}")
                     
-                    source = self._parse_source_from_url(parsed_review.source_url)
-                    logger.info(f"Parsed source: {source}")
+                    # СОЗДАЕМ ОДНУ ЗАПИСЬ В ОСНОВНОЙ ТАБЛИЦЕ REVIEWS
+                    # Используем агрегированный sentiment для основной записи
+                    aggregated_sentiment = self._aggregate_sentiments(sentiments)
+                    sentiment_score = self._calculate_sentiment_score(aggregated_sentiment)
+                    
+                    logger.info(f"Aggregated sentiment: {aggregated_sentiment}, score: {sentiment_score}")
                     
                     from app.models.models import Review, ReviewProduct
                     
-                    # СОЗДАЕМ ОТЗЫВ В ОСНОВНОЙ ТАБЛИЦЕ
                     review = Review(
                         text=parsed_review.review_text,
                         date=review_date,
                         rating=rating,
-                        sentiment=sentiment,
+                        sentiment=aggregated_sentiment,
                         sentiment_score=sentiment_score,
-                        source=source
+                        source=primary_source
                     )
                     
                     saved_review = await review_repo.save(session, review)
                     logger.info(f"Created review in main table: ID {saved_review.id}")
                     
-                    # СОЗДАЕМ СВЯЗЬ В REVIEW_PRODUCTS
-                    review_product = ReviewProduct(
-                        review_id=saved_review.id,
-                        product_id=product.id,
-                        sentiment=sentiment,
-                        sentiment_score=sentiment_score
-                    )
-                    session.add(review_product)
-                    await session.flush()
-                    logger.info(f"Created review_product link: review_id={saved_review.id}, product_id={product.id}")
+                    # СОЗДАЕМ МНОЖЕСТВЕННЫЕ СВЯЗИ В REVIEW_PRODUCTS
+                    # Для каждого топика создаем отдельную запись в review_products
+                    for topic_index, topic in enumerate(topics):
+                        # Переводим английское название топика на русский
+                        russian_topic_name = self._translate_product_name(topic)
+                        logger.info(f"Processing topic {topic_index + 1}/{len(topics)}: '{topic}' -> '{russian_topic_name}'")
+                        
+                        # Получаем или создаем продукт для этого топика
+                        product = await product_repo.get_by_name(session, russian_topic_name)
+                        
+                        if not product:
+                            from app.models.models import Product, ProductType, ClientType
+                            
+                            # Получаем родителя для продукта
+                            parent_product = await self._get_or_create_parent_product(session, product_repo, russian_topic_name)
+                            
+                            # Определяем тип продукта и уровень
+                            product_type, level = self._determine_product_type_and_level(russian_topic_name, parent_product)
+                            
+                            logger.info(f"Creating new product: {russian_topic_name}, type: {product_type}, level: {level}")
+                            
+                            product = Product(
+                                name=russian_topic_name,
+                                type=product_type,
+                                client_type=ClientType.BOTH,
+                                level=level,
+                                parent_id=parent_product.id if parent_product else None
+                            )
+                            product = await product_repo.save(session, product)
+                            products_created_count += 1
+                            logger.info(f"Created new product: {russian_topic_name} (id: {product.id})")
+                        else:
+                            logger.info(f"Product already exists: {russian_topic_name} (id: {product.id})")
+                        
+                        # Определяем sentiment для конкретного топика
+                        # Используем sentiment из соответствующего индекса массива
+                        topic_sentiment = aggregated_sentiment  # по умолчанию
+                        topic_sentiment_score = sentiment_score
+                        
+                        if topic_index < len(sentiments):
+                            topic_specific_sentiment = self._translate_sentiment(sentiments[topic_index])
+                            if topic_specific_sentiment:
+                                topic_sentiment = topic_specific_sentiment
+                                topic_sentiment_score = self._calculate_sentiment_score(topic_sentiment)
+                                logger.info(f"Using topic-specific sentiment: {topic_sentiment}")
+                        
+                        # СОЗДАЕМ СВЯЗЬ В REVIEW_PRODUCTS для этого топика
+                        review_product = ReviewProduct(
+                            review_id=saved_review.id,
+                            product_id=product.id,
+                            sentiment=topic_sentiment,
+                            sentiment_score=topic_sentiment_score
+                        )
+                        session.add(review_product)
+                        await session.flush()
+                        logger.info(f"Created review_product link: review_id={saved_review.id}, product_id={product.id}, sentiment={topic_sentiment}")
                     
                     reviews_created += 1
                     review_ids_to_mark.append(parsed_review.id)
@@ -222,7 +273,7 @@ class ParserService:
                 except Exception as e:
                     logger.error(f"Error processing review {parsed_review.id}: {str(e)}", exc_info=True)
                     continue
-            
+                
             logger.info(f"Successfully processed {reviews_created} reviews")
             
             if mark_processed and review_ids_to_mark:
@@ -235,12 +286,10 @@ class ParserService:
                 "status": "success",
                 "bank_slug": bank_slug,
                 "product_name": product_name,
-                "russian_product_name": russian_product_name,
                 "reviews_processed": len(filtered_reviews),
                 "reviews_created": reviews_created,
-                "products_created": products_created,
-                "product_id": product.id if product else None,
-                "message": f"Successfully processed {reviews_created} reviews"
+                "products_created": products_created_count,
+                "message": f"Successfully processed {reviews_created} reviews with multiple topics"
             }
             
         except Exception as e:
@@ -250,56 +299,112 @@ class ParserService:
                 "message": f"Processing failed: {str(e)}"
             }
 
+    def _aggregate_sentiments(self, sentiments: List[str]) -> str:
+        """
+        Агрегирует несколько sentiments в один общий
+        """
+        if not sentiments:
+            return "neutral"
+        
+        # Переводим русские sentiments в английские
+        translated_sentiments = [self._translate_sentiment(s) for s in sentiments if self._translate_sentiment(s)]
+        
+        if not translated_sentiments:
+            return "neutral"
+        
+        # Подсчитываем количество каждого типа
+        positive_count = translated_sentiments.count("positive")
+        negative_count = translated_sentiments.count("negative")
+        neutral_count = translated_sentiments.count("neutral")
+        
+        # Определяем доминирующий sentiment
+        if positive_count > negative_count and positive_count > neutral_count:
+            return "positive"
+        elif negative_count > positive_count and negative_count > neutral_count:
+            return "negative"
+        else:
+            return "neutral"
+
+    def _translate_sentiment(self, sentiment) -> Optional[str]:
+        """
+        Переводит русский sentiment в английский
+        Обрабатывает строки и другие типы
+        """
+        if not sentiment:
+            return None
+        
+        sentiment_str = str(sentiment).lower()
+        
+        translation_map = {
+            "положительная": "positive",
+            "позитивная": "positive",
+            "positive": "positive",
+            "негативная": "negative", 
+            "отрицательная": "negative",
+            "negative": "negative",
+            "нейтральная": "neutral",
+            "neutral": "neutral",
+        }
+        
+        return translation_map.get(sentiment_str)
     def _translate_product_name(self, english_name: str) -> str:
         """
-        Переводит английские названия продуктов на русский
+        Переводит английские названия продуктов на русский согласно новой структуре
         """
         translation_map = {
-            # Основные категории
+            # Основные категории верхнего уровня
             'cards': 'Карты',
-            'debitcards': 'Дебетовые карты',
-            'creditcards': 'Кредитные карты',
-            'credits': 'Кредиты',
-            'deposits': 'Вклады и счета',
+            'deposits': 'Вклады',
+            'credits': 'Кредитование',
             'service': 'Обслуживание',
-            'other': 'Другие услуги',
+            'mobile_app': 'Приложение',
+            'other': 'Другой',
+            
+            # Подкатегории карт
+            'creditcards': 'Кредитные карты',
+            'debitcards': 'Дебетовые карты',
+            
+            # Подкатегории кредитования
+            'credits': 'Кредиты',
             'restructing': 'Реструктуризация',
-            'remote': 'Дистанционное обслуживание',
-            'mobile_app': 'Мобильное приложение',
             'hypothec': 'Ипотека',
             
+            # Подкатегории обслуживания
+            'remote': 'Дистанционное обслуживание',
+            'offline': 'Очное обслуживание',
+            
             # Конкретные продукты (если есть в данных)
-            'gazpromDEB': 'Дебетовая карта Газпромбанк',
-            'DEB Supreme': 'Дебетовая карта Supreme',
-            'Для dep школьников': 'Дебетовая карта для школьников',
-            'gazpromDEBNEW': 'Новая дебетовая карта Газпромбанк',
-            'Golden Deb': 'Золотая дебетовая карта',
-            'Deb New Brilliant': 'Дебетовая карта Brilliant',
-            'Золотая golden Deb': 'Золотая дебетовая карта',
+            'gazpromDEB': 'Дебетовые карты',
+            'DEB Supreme': 'Дебетовые карты',
+            'Для dep школьников': 'Дебетовые карты',
+            'gazpromDEBNEW': 'Дебетовые карты',
+            'Golden Deb': 'Дебетовые карты',
+            'Deb New Brilliant': 'Дебетовые карты',
+            'Золотая golden Deb': 'Дебетовые карты',
             
-            'карта "Мир"': 'Карта Мир',
-            'Mir Supreme': 'Карта Мир Supreme', 
-            'Для школьников': 'Карта для школьников',
-            'карта "Мир2"': 'Карта Мир 2',
-            'Mir Supreme2': 'Карта Мир Supreme 2',
-            'Для школьников2': 'Карта для школьников 2',
-            'Золотая карта': 'Золотая карта',
-            'Платиновая карта': 'Платиновая карта',
+            'карта "Мир"': 'Дебетовые карты',
+            'Mir Supreme': 'Дебетовые карты', 
+            'Для школьников': 'Дебетовые карты',
+            'карта "Мир2"': 'Дебетовые карты',
+            'Mir Supreme2': 'Дебетовые карты',
+            'Для школьников2': 'Дебетовые карты',
+            'Золотая карта': 'Дебетовые карты',
+            'Платиновая карта': 'Дебетовые карты',
             
-            'Вклад лучшие проценты': 'Вклад "Лучшие проценты"',
-            'Вклад Накопилка': 'Вклад "Накопилка"',
-            'Накопление для школьников': 'Накопление для школьников',
-            'Винстон черчиль': 'Вклад "Винстон Черчилль"',
+            'Вклад лучшие проценты': 'Вклады',
+            'Вклад Накопилка': 'Вклады',
+            'Накопление для школьников': 'Вклады',
+            'Винстон черчиль': 'Вклады',
             
             # Общие
-            'general': 'Общие услуги'
+            'general': 'Другой'
         }
         
         return translation_map.get(english_name, english_name)
 
     def _determine_product_type_and_level(self, product_name: str, parent_product=None) -> tuple:
         """
-        Определяет тип продукта и уровень в иерархии
+        Определяет тип продукта и уровень в иерархии согласно новой структуре
         """
         from app.models.models import ProductType
         
@@ -309,9 +414,9 @@ class ParserService:
         if parent_product:
             return ProductType.PRODUCT, parent_product.level + 1
         
-        # Определяем категории верхнего уровня
+        # Определяем категории верхнего уровня согласно новой структуре
         top_level_categories = [
-            'карты', 'кредиты', 'вклады и счета', 'обслуживание', 'другие услуги'
+            'карты', 'вклады', 'кредитование', 'обслуживание', 'приложение', 'другой'
         ]
         
         if any(cat in product_lower for cat in top_level_categories):
@@ -322,7 +427,7 @@ class ParserService:
 
     async def create_base_categories(self, session: AsyncSession):
         """
-        Создает базовую структуру категорий продуктов
+        Создает базовую структуру категорий продуктов с правильной иерархией
         """
         from app.repositories.repositories import ProductRepository
         from app.models.models import Product, ProductType, ClientType
@@ -335,23 +440,25 @@ class ParserService:
                 'type': ProductType.CATEGORY,
                 'level': 0,
                 'children': [
-                    {'name': 'Дебетовые карты', 'type': ProductType.SUBCATEGORY, 'level': 1},
-                    {'name': 'Кредитные карты', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                    {'name': 'Кредитные карты', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Дебетовые карты', 'type': ProductType.SUBCATEGORY, 'level': 1}
                 ]
             },
             {
-                'name': 'Кредиты', 
+                'name': 'Вклады', 
+                'type': ProductType.CATEGORY,
+                'level': 0
+                # Без дочерних элементов - отзывы напрямую к вкладам
+            },
+            {
+                'name': 'Кредитование',
                 'type': ProductType.CATEGORY,
                 'level': 0,
                 'children': [
-                    {'name': 'Ипотека', 'type': ProductType.SUBCATEGORY, 'level': 1},
-                    {'name': 'Реструктуризация', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                    {'name': 'Кредиты', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Реструктуризация', 'type': ProductType.SUBCATEGORY, 'level': 1},
+                    {'name': 'Ипотека', 'type': ProductType.SUBCATEGORY, 'level': 1}
                 ]
-            },
-            {
-                'name': 'Вклады и счета',
-                'type': ProductType.CATEGORY, 
-                'level': 0
             },
             {
                 'name': 'Обслуживание',
@@ -359,13 +466,20 @@ class ParserService:
                 'level': 0,
                 'children': [
                     {'name': 'Дистанционное обслуживание', 'type': ProductType.SUBCATEGORY, 'level': 1},
-                    {'name': 'Мобильное приложение', 'type': ProductType.SUBCATEGORY, 'level': 1}
+                    {'name': 'Очное обслуживание', 'type': ProductType.SUBCATEGORY, 'level': 1}
                 ]
             },
             {
-                'name': 'Другие услуги',
+                'name': 'Приложение',
                 'type': ProductType.CATEGORY,
                 'level': 0
+                # Без дочерних элементов - отзывы напрямую к приложению
+            },
+            {
+                'name': 'Другой',
+                'type': ProductType.CATEGORY,
+                'level': 0
+                # Без дочерних элементов - другие услуги
             }
         ]
         
@@ -410,32 +524,46 @@ class ParserService:
     async def _get_or_create_parent_product(self, session: AsyncSession, product_repo, product_name: str):
         """
         Получает или создает родительский продукт для указанного продукта
+        согласно новой иерархии
         """
         from app.models.models import Product, ProductType, ClientType
         
         product_lower = product_name.lower()
         
-        # ОПРЕДЕЛЯЕМ РОДИТЕЛЯ ДЛЯ КАЖДОГО ТИПА ПРОДУКТА
+        # ОПРЕДЕЛЯЕМ РОДИТЕЛЯ ДЛЯ КАЖДОГО ТИПА ПРОДУКТА согласно новой структуре
         parent_mapping = {
             # Карты и связанные продукты
-            'дебетовые карты': ('Карты', ProductType.SUBCATEGORY),
             'кредитные карты': ('Карты', ProductType.SUBCATEGORY),
+            'дебетовые карты': ('Карты', ProductType.SUBCATEGORY),
+            'карты': (None, ProductType.CATEGORY),
             
-            # Кредиты и связанные продукты  
-            'ипотека': ('Кредиты', ProductType.SUBCATEGORY),
-            'реструктуризация': ('Кредиты', ProductType.SUBCATEGORY),
+            # Кредитование и связанные продукты  
+            'кредиты': ('Кредитование', ProductType.SUBCATEGORY),
+            'реструктуризация': ('Кредитование', ProductType.SUBCATEGORY),
+            'ипотека': ('Кредитование', ProductType.SUBCATEGORY),
+            'кредитование': (None, ProductType.CATEGORY),
             
             # Вклады (без родителя - верхний уровень)
+            'вклады': (None, ProductType.CATEGORY),
             'вклады и счета': (None, ProductType.CATEGORY),
+            'депозиты': (None, ProductType.CATEGORY),
             
             # Обслуживание и связанные продукты
             'дистанционное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
-            'мобильное приложение': ('Обслуживание', ProductType.SUBCATEGORY),
+            'оное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
             'обслуживание': (None, ProductType.CATEGORY),
+            'сервис': (None, ProductType.CATEGORY),
+            
+            # Приложение (без родителя - верхний уровень)
+            'приложение': (None, ProductType.CATEGORY),
+            'мобильное приложение': (None, ProductType.CATEGORY),
+            'приложения': (None, ProductType.CATEGORY),
             
             # Другие (без родителя)
+            'другой': (None, ProductType.CATEGORY),
             'другие услуги': (None, ProductType.CATEGORY),
-            'кредиты': (None, ProductType.CATEGORY),
+            'прочее': (None, ProductType.CATEGORY),
+            'other': (None, ProductType.CATEGORY),
         }
         
         # Ищем подходящего родителя
@@ -487,9 +615,18 @@ class ParserService:
             return 'Manual Input'
         else:
             return 'Other'
-    def _parse_rating(self, rating_str: str) -> int:
-        """Парсит строку с рейтингом в число для обоих источников"""
-        if not rating_str or rating_str == 'Без оценки':
+    def _parse_rating(self, rating_input) -> int:
+        """Парсит рейтинг в число для обоих источников"""
+        if not rating_input:
+            return 0
+        
+        # Если рейтинг уже число
+        if isinstance(rating_input, int):
+            return min(rating_input, 5)  # Ограничиваем максимум 5
+        
+        # Если рейтинг строка
+        rating_str = str(rating_input)
+        if rating_str == 'Без оценки':
             return 0
         
         try:
@@ -507,12 +644,13 @@ class ParserService:
         except (ValueError, TypeError):
             return 0
 
-    def _parse_review_date(self, date_str: str) -> Optional[date]:
+    def _parse_review_date(self, date_str) -> Optional[date]:
         """Парсит дату отзыва для обоих источников"""
         try:
             from datetime import datetime
             
             if not date_str:
+                logger.warning("Empty date string provided")
                 return None
                 
             date_formats = [

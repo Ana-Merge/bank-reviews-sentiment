@@ -36,13 +36,6 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v):
-        if len(v) > 150:
-            raise ValueError("Название продукта слишком длинное")
-        return v
-
 class ProductCreate(ProductBase):
     pass
 
@@ -155,8 +148,6 @@ class ReviewBulkCreate(BaseModel):
     def validate_data(cls, v):
         if not v:
             raise ValueError("Массив не должен быть пустым")
-        if len(v) > 1000:
-            raise ValueError("Слишком много отзывов, должно быть меньше 1000")
         ids = [item.id for item in v]
         if len(ids) != len(set(ids)):
             raise ValueError("Дубликат IDs в данных")

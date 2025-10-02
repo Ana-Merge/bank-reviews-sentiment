@@ -156,21 +156,35 @@ class DataInitializer:
     async def _get_unique_bank_product_combinations(self, session: AsyncSession) -> List[tuple]:
         """
         Получает уникальные комбинации банк-продукт из непереработанных отзывов
-        ВАЖНО: Используем оригинальные английские названия из reviews_for_model
+        Теперь учитываем, что у одного отзыва может быть несколько продуктов
         """
         from sqlalchemy import select
         from app.models.models import ReviewsForModel
 
-        statement = select(
-            ReviewsForModel.bank_slug, 
-            ReviewsForModel.product_name  # ОРИГИНАЛЬНОЕ английское название
-        ).where(
-            ReviewsForModel.processed == False
-        ).distinct()
-        
+        # Получаем все непереработанные отзывы
+        statement = select(ReviewsForModel).where(ReviewsForModel.processed == False)
         result = await session.execute(statement)
-        combinations = result.all()
+        unprocessed_reviews = result.scalars().all()
         
-        logger.info(f"Found {len(combinations)} unique combinations: {combinations}")
-        return combinations
+        combinations = set()
+        
+        for review in unprocessed_reviews:
+            bank_slug = review.bank_slug
+            additional_data = review.additional_data or {}
+            
+            # Получаем все топики из predictions
+            predictions = additional_data.get('predictions', {})
+            topics = predictions.get('topics', [])
+            
+            if topics:
+                # Создаем комбинации для каждого топика
+                for topic in topics:
+                    combinations.add((bank_slug, topic))
+            else:
+                # Старый формат - используем product_name
+                combinations.add((bank_slug, review.product_name))
+        
+        combinations_list = list(combinations)
+        logger.info(f"Found {len(combinations_list)} unique combinations: {combinations_list}")
+        return combinations_list
 # [file content end]
