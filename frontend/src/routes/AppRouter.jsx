@@ -46,23 +46,23 @@ const AppRouter = createBrowserRouter([
         ),
       },
       {
-        path: "mortgage",
-        element: (
-          <Suspense fallback={<LoadingSpinner />}>
-            <ProductPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: "investments",
-        element: (
-          <Suspense fallback={<LoadingSpinner />}>
-            <ProductPage />
-          </Suspense>
-        ),
-      },
-      {
         path: "services",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ProductPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "app",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ProductPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "another",
         element: (
           <Suspense fallback={<LoadingSpinner />}>
             <ProductPage />
