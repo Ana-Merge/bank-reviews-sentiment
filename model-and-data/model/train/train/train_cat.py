@@ -129,7 +129,7 @@ warmup_steps = int(0.1 * total_steps)
 
 training_args = TrainingArguments(
     output_dir='./results/topics',
-    num_train_epochs=1,
+    num_train_epochs=3,
     per_device_train_batch_size=12,
     per_device_eval_batch_size=12,
     gradient_accumulation_steps=1,

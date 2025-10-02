@@ -25,7 +25,7 @@ COPY preprocess.py /app/
 RUN mkdir -p /app/results/topic_model /app/results/sentiment_model /app/results/logs
 
 # Открытие порта для FastAPI
-EXPOSE 8000
+EXPOSE 8002
 
 # Команда по умолчанию
-CMD ["python", "-m", "uvicorn", "predict:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "predict:app", "--host", "0.0.0.0", "--port", "8002"]
