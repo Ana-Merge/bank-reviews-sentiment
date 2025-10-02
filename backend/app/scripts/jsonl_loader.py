@@ -111,6 +111,20 @@ class JSONLLoader:
             primary_date = review_dates[0] if review_dates else ''
             primary_rating = ratings[0] if ratings else 'Без оценки'
             
+            # ИСПРАВЛЕНИЕ: определяем source_url из данных
+            source_url = data.get('source_url', 'unknown')
+            # Если source_url неизвестен, но есть sources в predictions, используем первый source
+            if source_url == 'unknown' and sources:
+                source_url = sources[0]
+            
+            # Определяем тип источника для основного поля source_url
+            if 'banki' in source_url.lower():
+                source_url_final = 'banki'
+            elif 'sravni' in source_url.lower():
+                source_url_final = 'sravni'
+            else:
+                source_url_final = source_url
+            
             # Парсим дату
             review_timestamp = self._parse_review_date(primary_date)
             
@@ -128,7 +142,7 @@ class JSONLLoader:
                 'review_text': data.get('text', ''),
                 'review_date': primary_date,  # Сохраняем дату в основное поле
                 'review_timestamp': review_timestamp,
-                'source_url': data.get('source_url', 'unknown'),
+                'source_url': source_url_final,  # ИСПРАВЛЕНИЕ: используем определенный источник
                 'parsed_at': datetime.utcnow(),
                 'processed': False,
                 'additional_data': {
@@ -140,13 +154,31 @@ class JSONLLoader:
                     'all_sources': sources,  # Сохраняем все sources
                     'all_review_dates': review_dates,  # Сохраняем все даты
                     'all_ratings': ratings,  # Сохраняем все рейтинги
-                    'import_timestamp': datetime.utcnow().isoformat()
+                    'import_timestamp': datetime.utcnow().isoformat(),
+                    'original_source_url': source_url  # Сохраняем оригинальный URL
                 }
             }
         except Exception as e:
             logger.error(f"Error transforming review data: {str(e)}")
             # Fallback для старого формата
             return self._transform_old_format(review_data, source)
+
+    def _determine_source_type(self, source_url: str) -> str:
+        """
+        Определяет тип источника по URL
+        """
+        if not source_url or source_url == 'unknown':
+            return 'unknown'
+        
+        source_lower = source_url.lower()
+        
+        if 'banki' in source_lower:
+            return 'banki'
+        elif 'sravni' in source_lower:
+            return 'sravni'
+        else:
+            return source_url
+
 
     def _transform_old_format(self, review_data: Dict[str, Any], source: str) -> Dict[str, Any]:
         """
@@ -159,6 +191,15 @@ class JSONLLoader:
         bank_name = review_data.get('bank_name', '')
         bank_slug = review_data.get('bank_slug') or self._create_bank_slug(bank_name)
         
+        # ИСПРАВЛЕНИЕ: определяем source_url из старых данных
+        original_source = review_data.get('source', 'unknown')
+        if 'banki' in original_source.lower():
+            source_url_final = 'banki'
+        elif 'sravni' in original_source.lower():
+            source_url_final = 'sravni'
+        else:
+            source_url_final = original_source
+        
         return {
             'bank_name': bank_name,
             'bank_slug': bank_slug,
@@ -169,7 +210,7 @@ class JSONLLoader:
             'review_text': review_data.get('review_text', ''),
             'review_date': review_date,
             'review_timestamp': review_timestamp,
-            'source_url': review_data.get('source', 'unknown'),
+            'source_url': source_url_final,  # ИСПРАВЛЕНИЕ: используем определенный источник
             'parsed_at': datetime.utcnow(),
             'processed': False,
             'additional_data': {
@@ -177,7 +218,7 @@ class JSONLLoader:
                 'original_topic': review_data.get('topic'),
                 'english_product_name': english_product_name,
                 'import_timestamp': datetime.utcnow().isoformat(),
-                'original_source': review_data.get('source', 'unknown')
+                'original_source': original_source
             }
         }
 

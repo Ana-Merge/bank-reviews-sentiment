@@ -550,7 +550,7 @@ class ParserService:
             
             # Обслуживание и связанные продукты
             'дистанционное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
-            'оное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
+            'очное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
             'обслуживание': (None, ProductType.CATEGORY),
             'сервис': (None, ProductType.CATEGORY),
             
