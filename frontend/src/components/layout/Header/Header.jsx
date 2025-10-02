@@ -7,7 +7,6 @@ import { AuthModal } from "../../../components";
 import styles from "./Header.module.scss";
 import gazpromLogo from "/gazprom-logo.png";
 import uploadIcon from "../../../assets/icons/icon-upload.svg";
-import downloadIcon from "../../../assets/icons/icon-download.svg";
 import accountIcon from "../../../assets/icons/icon-account.svg";
 
 const Header = () => {
@@ -59,10 +58,6 @@ const Header = () => {
     }
   };
 
-  const handleDownload = () => {
-    // логика скачивания
-  };
-
   const handlePredict = () => {
     // логика загрузки
   };
@@ -86,15 +81,6 @@ const Header = () => {
             >
               <span className={styles.predictText}>Предсказать</span>
               <img src={uploadIcon} alt="" width={20} height={20} />
-            </button>
-
-            <button
-              className={styles.downloadBtn}
-              aria-label="Скачать"
-              onClick={handleDownload}
-            >
-              <span className={styles.downloadText}>Скачать</span>
-              <img src={downloadIcon} alt="" width={20} height={20} />
             </button>
 
             <div className={styles.accountSection}>
