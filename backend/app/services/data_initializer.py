@@ -1,6 +1,3 @@
-# [file name]: data_initializer.py
-# [file content begin]
-# [file name]: data_initializer.py
 import os
 import logging
 from typing import List, Dict, Any
@@ -29,18 +26,15 @@ class DataInitializer:
             "data_processing": {}
         }
 
-        # Шаг 0: Создаем базовую структуру категорий
         base_categories_result = await self.parser_service.create_base_categories(session)
         results["base_categories"] = {
             "status": "completed",
             "categories_created": base_categories_result
         }
 
-        # Шаг 1: Загрузка данных из JSONL файлов
         jsonl_results = await self._load_jsonl_data(session)
         results["jsonl_loading"] = jsonl_results
 
-        # Шаг 2: Обработка загруженных данных в основные таблицы
         if jsonl_results.get("total_loaded", 0) > 0:
             processing_results = await self._process_loaded_data(session)
             results["data_processing"] = processing_results
@@ -56,7 +50,7 @@ class DataInitializer:
         """
         Загружает данные из всех JSONL файлов в директории data
         """
-        data_dir = "/app/app/data"  # Путь в контейнере
+        data_dir = "/app/app/data"
         total_loaded = 0
         file_results = []
 
@@ -68,7 +62,6 @@ class DataInitializer:
                 "total_loaded": 0
             }
 
-        # Ищем все JSONL файлы
         jsonl_files = [f for f in os.listdir(data_dir) if f.endswith('.jsonl')]
         
         if not jsonl_files:
@@ -108,7 +101,6 @@ class DataInitializer:
         total_created = 0
         
         try:
-            # Получаем уникальные банки и продукты из загруженных данных
             unique_combinations = await self._get_unique_bank_product_combinations(session)
             
             if not unique_combinations:
@@ -123,12 +115,11 @@ class DataInitializer:
             for bank_slug, product_name in unique_combinations:
                 logger.info(f"Processing data for {bank_slug} - {product_name}")
                 
-                # Используем существующий метод из parser_service для обработки
                 result = await self.parser_service.process_parsed_reviews(
                     session, 
                     bank_slug, 
                     product_name, 
-                    limit=100000,  # Большой лимит чтобы обработать все
+                    limit=900000,
                     mark_processed=True
                 )
                 
@@ -161,7 +152,6 @@ class DataInitializer:
         from sqlalchemy import select
         from app.models.models import ReviewsForModel
 
-        # Получаем все непереработанные отзывы
         statement = select(ReviewsForModel).where(ReviewsForModel.processed == False)
         result = await session.execute(statement)
         unprocessed_reviews = result.scalars().all()
@@ -172,19 +162,15 @@ class DataInitializer:
             bank_slug = review.bank_slug
             additional_data = review.additional_data or {}
             
-            # Получаем все топики из predictions
             predictions = additional_data.get('predictions', {})
             topics = predictions.get('topics', [])
             
             if topics:
-                # Создаем комбинации для каждого топика
                 for topic in topics:
                     combinations.add((bank_slug, topic))
             else:
-                # Старый формат - используем product_name
                 combinations.add((bank_slug, review.product_name))
         
         combinations_list = list(combinations)
         logger.info(f"Found {len(combinations_list)} unique combinations: {combinations_list}")
         return combinations_list
-# [file content end]

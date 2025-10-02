@@ -5,8 +5,6 @@ from typing import Dict, List, Optional
 import uuid
 from random import randint
 import os
-
-# Сопоставление ID банков с их названиями
 BANK_MAPPING = {
 }
 
@@ -95,12 +93,10 @@ def save_reviews_to_json(reviews: List[Dict], filename: str):
     print(f"Сохранено {len(reviews)} отзывов в {filename}")
 
 if __name__ == "__main__":
-    # Создание директорий для сохранения данных
     os.makedirs('sravniru/reviews', exist_ok=True)
     filename = "sravniru/bank_mapping.json"
     id_to_name = {}
     try:
-        # Загрузка маппинга банков из файла
         with open(filename, "r", encoding="utf-8") as f:
             id_to_name  = json.load(f)
             name_to_id = {id_: name for name, id_ in id_to_name.items()}
@@ -111,7 +107,6 @@ if __name__ == "__main__":
     
     BANK_MAPPING = id_to_name
     
-    # Сбор отзывов для каждого банка
     for object_id, bank_name in BANK_MAPPING.items():
         print(f"Сбор отзывов для {bank_name} ({object_id})...")
         specific_reviews = fetch_reviews(review_object_id=object_id)

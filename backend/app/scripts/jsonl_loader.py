@@ -26,7 +26,6 @@ class JSONLLoader:
             processed_count = 0
             error_count = 0
 
-            # Проверяем существование файла
             if not os.path.exists(file_path):
                 return {
                     "status": "error",
@@ -43,7 +42,6 @@ class JSONLLoader:
                         review_data = json.loads(line)
                         transformed_review = self._transform_review_data(review_data, source)
                         
-                        # Проверяем обязательные поля
                         if not transformed_review.get('review_text'):
                             logger.warning(f"Skipping line {line_num}: missing review_text")
                             continue
@@ -58,7 +56,6 @@ class JSONLLoader:
                         logger.error(f"Error processing line {line_num}: {e}")
                         error_count += 1
 
-            # Сохраняем данные в базу
             if reviews_data:
                 saved_count = await self._reviews_for_model_repo.bulk_create_from_jsonl(
                     session, reviews_data
@@ -92,32 +89,24 @@ class JSONLLoader:
         Преобразует данные из нового формата JSONL в формат для ReviewsForModel
         """
         try:
-            # Новый формат: {"data": {...}, "predictions": {...}}
             data = review_data.get('data', {})
             predictions = review_data.get('predictions', {})
             
-            # Получаем массивы из predictions - исправляем ключ с двоеточием
             topics = predictions.get('topics', [])
             sentiments = predictions.get('sentiments', [])
             sources = predictions.get('sources', [])
-            # ИСПРАВЛЕНИЕ: используем правильный ключ с двоеточием
             review_dates = predictions.get('review_dates:', []) or predictions.get('review_dates', [])
             ratings = predictions.get('ratings', [])
-            
-            # Используем первый элемент массивов для основной записи
             primary_topic = topics[0] if topics else 'general'
             primary_sentiment = sentiments[0] if sentiments else 'нейтральная'
             primary_source = sources[0] if sources else 'unknown'
             primary_date = review_dates[0] if review_dates else ''
             primary_rating = ratings[0] if ratings else 'Без оценки'
             
-            # ИСПРАВЛЕНИЕ: определяем source_url из данных
             source_url = data.get('source_url', 'unknown')
-            # Если source_url неизвестен, но есть sources в predictions, используем первый source
             if source_url == 'unknown' and sources:
                 source_url = sources[0]
             
-            # Определяем тип источника для основного поля source_url
             if 'banki' in source_url.lower():
                 source_url_final = 'banki'
             elif 'sravni' in source_url.lower():
@@ -125,42 +114,39 @@ class JSONLLoader:
             else:
                 source_url_final = source_url
             
-            # Парсим дату
             review_timestamp = self._parse_review_date(primary_date)
             
-            # Создаем bank_slug из bank_name если не указан
             bank_name = data.get('bank_name', '')
             bank_slug = data.get('bank_slug') or self._create_bank_slug(bank_name)
             
             return {
                 'bank_name': bank_name,
                 'bank_slug': bank_slug,
-                'product_name': primary_topic,  # Основной продукт для фильтрации
+                'product_name': primary_topic,
                 'review_theme': data.get('review_theme', ''),
                 'rating': str(primary_rating),
                 'verification_status': data.get('verification_status', ''),
                 'review_text': data.get('text', ''),
-                'review_date': primary_date,  # Сохраняем дату в основное поле
+                'review_date': primary_date,
                 'review_timestamp': review_timestamp,
-                'source_url': source_url_final,  # ИСПРАВЛЕНИЕ: используем определенный источник
+                'source_url': source_url_final,
                 'parsed_at': datetime.utcnow(),
                 'processed': False,
                 'additional_data': {
                     'source': source,
                     'original_data': data,
                     'predictions': predictions,
-                    'all_topics': topics,  # Сохраняем все топики
-                    'all_sentiments': sentiments,  # Сохраняем все sentiments
-                    'all_sources': sources,  # Сохраняем все sources
-                    'all_review_dates': review_dates,  # Сохраняем все даты
-                    'all_ratings': ratings,  # Сохраняем все рейтинги
+                    'all_topics': topics,
+                    'all_sentiments': sentiments,
+                    'all_sources': sources,
+                    'all_review_dates': review_dates,
+                    'all_ratings': ratings,
                     'import_timestamp': datetime.utcnow().isoformat(),
-                    'original_source_url': source_url  # Сохраняем оригинальный URL
+                    'original_source_url': source_url
                 }
             }
         except Exception as e:
             logger.error(f"Error transforming review data: {str(e)}")
-            # Fallback для старого формата
             return self._transform_old_format(review_data, source)
 
     def _determine_source_type(self, source_url: str) -> str:
@@ -191,7 +177,6 @@ class JSONLLoader:
         bank_name = review_data.get('bank_name', '')
         bank_slug = review_data.get('bank_slug') or self._create_bank_slug(bank_name)
         
-        # ИСПРАВЛЕНИЕ: определяем source_url из старых данных
         original_source = review_data.get('source', 'unknown')
         if 'banki' in original_source.lower():
             source_url_final = 'banki'
@@ -210,7 +195,7 @@ class JSONLLoader:
             'review_text': review_data.get('review_text', ''),
             'review_date': review_date,
             'review_timestamp': review_timestamp,
-            'source_url': source_url_final,  # ИСПРАВЛЕНИЕ: используем определенный источник
+            'source_url': source_url_final,
             'parsed_at': datetime.utcnow(),
             'processed': False,
             'additional_data': {
@@ -240,7 +225,6 @@ class JSONLLoader:
                 except ValueError:
                     continue
             
-            # Если ни один формат не подошел, возвращаем текущую дату
             logger.warning(f"Could not parse date: {date_str}, using current time")
             return datetime.utcnow()
             
@@ -255,7 +239,6 @@ class JSONLLoader:
         if not bank_name:
             return 'unknown'
         
-        # Простая транслитерация и создание slug
         slug = bank_name.lower()
         translit_map = {
             'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',

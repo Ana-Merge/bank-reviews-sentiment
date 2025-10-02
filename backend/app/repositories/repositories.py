@@ -233,13 +233,13 @@ class ReviewRepository:
         if not product_ids:
             return {"positive": 0, "neutral": 0, "negative": 0}
         statement = select(
-            ReviewProduct.sentiment,  # Теперь берем из ReviewProduct
+            ReviewProduct.sentiment,
             func.count(func.distinct(Review.id)).label("count")
         ).join(ReviewProduct).where(
             ReviewProduct.product_id.in_(product_ids),
             Review.date >= start_date,
             Review.date <= end_date,
-            ReviewProduct.sentiment.isnot(None)  # Убедимся, что тональность есть
+            ReviewProduct.sentiment.isnot(None)
         ).group_by(ReviewProduct.sentiment)
         if source:
             statement = statement.where(Review.source == source)

@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 notifications_router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
 def get_notification_service(request: Request) -> NotificationService:
-    """Получить NotificationService из app.state."""
     return request.app.state.notification_service
 
 @notifications_router.get("/", response_model=List[NotificationResponse])
