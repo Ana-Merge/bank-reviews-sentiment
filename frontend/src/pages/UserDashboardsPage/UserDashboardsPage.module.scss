@@ -1,0 +1,203 @@
+@use "../../styles/variables" as vars;
+
+.pageContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    width: 100%;
+    padding: 20px 0;
+    min-height: calc(100vh - 80px);
+}
+
+.loading {
+    text-align: center;
+    padding: 60px 40px;
+    color: vars.$color-text;
+    font-size: vars.$font-size-md;
+}
+
+.error {
+    color: #dc3545;
+    padding: 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pageHeader {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.headerContent {
+    flex: 1;
+}
+
+.pageTitle {
+    margin: 0 0 12px 0;
+    color: vars.$color-text-dark;
+    font-size: vars.$font-size-3xl;
+    font-weight: vars.$font-weight-semibold;
+}
+
+.pageMeta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.pagesCount {
+    background-color: vars.$color-text-light;
+    color: vars.$color-primary;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+}
+
+.pageContent {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.emptyState {
+    text-align: center;
+    padding: 60px 40px;
+}
+
+.emptyContent {
+    h3 {
+        margin: 0 0 12px 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-xl;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    p {
+        margin: 0;
+        color: vars.$color-text;
+        font-size: vars.$font-size-md;
+    }
+}
+
+.pagesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 24px;
+}
+
+.pageCard {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+}
+
+.pageContentInner {
+    padding: 28px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    &:hover {
+        background-color: #f8f9fa;
+    }
+}
+
+.pageName {
+    margin: 0 0 16px 0;
+    color: vars.$color-text-dark;
+    font-size: vars.$font-size-lg;
+    font-weight: vars.$font-weight-medium;
+    line-height: 1.4;
+}
+
+.pageInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chartsCount {
+    font-size: vars.$font-size-md;
+    color: vars.$color-text;
+    font-weight: vars.$font-weight-medium;
+
+    &:before {
+        content: "• ";
+        color: vars.$color-primary;
+        font-weight: bold;
+    }
+}
+
+.pageActions {
+    display: flex;
+    border-top: 1px solid #f0f0f0;
+    height: 60px;
+}
+
+.openButton,
+.saveButton {
+    flex: 1;
+    padding: 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+}
+
+.openButton {
+    color: vars.$color-primary;
+    border-right: 1px solid #f0f0f0;
+
+    &:hover {
+        background-color: #e3f2fd;
+    }
+}
+
+.saveButton {
+    color: vars.$color-sentiment-positive;
+
+    &:hover:not(:disabled) {
+        background-color: rgba(vars.$color-sentiment-positive, 0.1);
+    }
+
+    &:disabled {
+        color: #6c757d;
+        cursor: not-allowed;
+        background-color: #f8f9fa;
+    }
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}

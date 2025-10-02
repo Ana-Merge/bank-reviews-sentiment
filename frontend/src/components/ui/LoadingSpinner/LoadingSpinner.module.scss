@@ -1,0 +1,66 @@
+@use "../../../styles/variables" as vars;
+
+.spinnerContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  gap: 20px;
+
+  @media (max-width: 1440px) {
+    height: 180px;
+    gap: 18px;
+  }
+
+  @media (max-width: 1200px) {
+    height: 160px;
+    gap: 16px;
+  }
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid vars.$color-text-light;
+  border-top: 4px solid vars.$color-primary;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+
+  @media (max-width: 1440px) {
+    width: 45px;
+    height: 45px;
+    border-width: 3.5px;
+  }
+
+  @media (max-width: 1200px) {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+  }
+}
+
+.loadingText {
+  font-size: vars.$font-size-md;
+  color: vars.$color-text;
+  font-weight: vars.$font-weight-medium;
+  margin: 0;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,362 @@
+@use "../../../styles/variables" as vars;
+
+@mixin btn {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  outline: none;
+
+  &:hover {
+    opacity: 0.8;
+    background-color: vars.$color-text-light;
+  }
+
+  &:active {
+    background-color: vars.$color-text-medium;
+  }
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0 24px;
+
+  @media (max-width: 1440px) {
+    padding: 14px 0 20px;
+    gap: 14px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 12px 0 18px;
+    gap: 12px;
+  }
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 75px;
+
+  @media (max-width: 1440px) {
+    padding: 0 60px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 0 40px;
+  }
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: vars.$color-primary;
+  font-family: vars.$font-family-accent;
+  font-weight: vars.$font-weight-bold;
+  font-size: vars.$font-size-4xl;
+  z-index: 999;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-4xl;
+    gap: 14px;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-3xl;
+    gap: 12px;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.3s ease;
+
+    &:hover {
+      color: vars.$color-primary-hover;
+    }
+  }
+
+  img {
+    width: 30px;
+    height: 30px;
+    transition: opacity 0.3s ease;
+
+    @media (max-width: 1440px) {
+      width: 28px;
+      height: 28px;
+    }
+
+    @media (max-width: 1200px) {
+      width: 26px;
+      height: 26px;
+    }
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  .textLogo:hover {
+    color: vars.$color-primary-hover;
+  }
+}
+
+.actionsContainer {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 16px 32px;
+
+  @media (max-width: 1440px) {
+    gap: 30px;
+    padding: 14px 28px;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 20px;
+    padding: 12px 24px;
+  }
+}
+
+.accountSection {
+  display: flex;
+  align-items: center;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 16px;
+  background: vars.$color-background;
+  border-radius: 8px;
+}
+
+.userName {
+  font-size: vars.$font-size-md;
+  color: vars.$color-text;
+  font-weight: vars.$font-weight-medium;
+}
+
+.logoutBtn {
+  background: none;
+  border: 1px solid vars.$color-primary;
+  color: vars.$color-primary;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: vars.$font-size-sm;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: vars.$color-primary;
+    color: vars.$color-white;
+  }
+}
+
+.cityWrapper {
+  font-family: vars.$font-family-base;
+  font-weight: vars.$font-weight-medium;
+  font-size: vars.$font-size-xl;
+  padding: 0 20px;
+  color: vars.$color-secondary;
+  transition: color 0.3s ease;
+  cursor: pointer;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-lg;
+    padding: 0 18px;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-md;
+    padding: 0 16px;
+  }
+
+  &:hover {
+    color: vars.$color-primary;
+  }
+}
+
+.predictBtn {
+  @include btn;
+  gap: 20px;
+  padding: 16px 24px;
+  margin: 0 20px;
+
+  @media (max-width: 1440px) {
+    gap: 18px;
+    padding: 14px 20px;
+    margin: 0 18px;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 16px;
+    padding: 12px 18px;
+    margin: 0 16px;
+  }
+}
+
+.downloadBtn {
+  @include btn;
+  gap: 20px;
+  padding: 16px 24px;
+  margin: 0 20px;
+
+  @media (max-width: 1440px) {
+    gap: 18px;
+    padding: 14px 20px;
+    margin: 0 18px;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 16px;
+    padding: 12px 18px;
+    margin: 0 16px;
+  }
+}
+
+.predictText {
+  font-family: vars.$font-family-base;
+  font-weight: vars.$font-weight-medium;
+  font-size: vars.$font-size-lg;
+  color: vars.$color-text;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.downloadText {
+  font-family: vars.$font-family-base;
+  font-weight: vars.$font-weight-medium;
+  font-size: vars.$font-size-lg;
+  color: vars.$color-text;
+  white-space: nowrap;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-md;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-sm;
+  }
+}
+
+.iconBtn {
+  @include btn;
+  justify-content: center;
+  padding: 16px;
+  margin: 0 10px;
+
+  @media (max-width: 1440px) {
+    padding: 14px;
+    margin: 0 8px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 12px;
+    margin: 0 6px;
+  }
+}
+
+.predictBtn img,
+.downloadBtn img,
+.iconBtn img {
+  width: 24px;
+  height: 24px;
+  transition: all 0.3s ease;
+
+  @media (max-width: 1440px) {
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1200px) {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.navBar {
+  padding: 30px 20px;
+  background-color: vars.$color-white;
+  border-radius: 0;
+  transition: all 0.3s ease;
+  width: 100%;
+
+  @media (max-width: 1440px) {
+    padding: 25px 15px;
+  }
+
+  @media (max-width: 1200px) {
+    padding: 20px 10px;
+  }
+}
+
+.navList {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: 100%;
+
+  @media (max-width: 1200px) {
+    gap: 6px;
+  }
+
+  li {
+    flex-shrink: 0;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+}
+
+.navLink {
+  text-decoration: none;
+  color: vars.$color-text;
+  font-size: vars.$font-size-lg;
+  padding: 12px 20px;
+  border-radius: 8px;
+  transition: color 0.3s ease;
+  font-weight: vars.$font-weight-medium;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 1440px) {
+    font-size: vars.$font-size-lg;
+    padding: 10px 16px;
+  }
+
+  @media (max-width: 1200px) {
+    font-size: vars.$font-size-md;
+    padding: 8px 14px;
+  }
+
+  &:hover,
+  &.active {
+    color: vars.$color-primary;
+  }
+}

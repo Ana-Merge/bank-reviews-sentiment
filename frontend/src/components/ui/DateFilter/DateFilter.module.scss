@@ -1,0 +1,190 @@
+@use "../../../styles/variables" as vars;
+
+.dateFilter {
+    width: 100%;
+
+    .errorInput {
+        border-color: #ff4444 !important;
+        background-color: #fffafa;
+    }
+
+    .errorText {
+        color: #ff4444;
+        font-size: vars.$font-size-xs;
+        margin-top: 4px;
+        display: block;
+    }
+
+    .rangeError {
+        color: #ff4444;
+        font-size: vars.$font-size-sm;
+        margin-top: 8px;
+        padding: 8px;
+        background-color: #fffafa;
+        border-radius: 4px;
+        border-left: 3px solid #ff4444;
+    }
+
+    .filterGroup {
+        position: relative;
+        margin-bottom: 10px;
+    }
+
+    .periodLengthHint {
+        background-color: #e3f2fd;
+        border: 1px solid #90caf9;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin: 8px 0;
+        font-size: 14px;
+        color: #1565c0;
+        line-height: 1.4;
+    }
+}
+
+.filterControls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 12px;
+}
+
+.periodSection {
+    .periodTitle {
+        margin: 0 0 8px 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-md;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    .periodControls {
+        display: flex;
+        gap: 16px;
+        align-items: end;
+    }
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+
+    label {
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
+        font-weight: vars.$font-weight-medium;
+        margin-bottom: 2px;
+    }
+
+    input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: vars.$font-size-md;
+        width: 100%;
+
+        &:focus {
+            outline: none;
+            border-color: vars.$color-primary;
+            box-shadow: 0 0 0 2px rgba(vars.$color-primary, 0.1);
+        }
+    }
+}
+
+.disabledInput {
+    background-color: vars.$color-background;
+    color: #666;
+    cursor: not-allowed;
+    font-style: italic;
+}
+
+.dateRangeInfo {
+    font-size: vars.$font-size-xs;
+    color: vars.$color-text;
+    opacity: 0.7;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.selectedProductInfo {
+    color: vars.$color-primary;
+    font-weight: vars.$font-weight-medium;
+    padding: 4px 8px;
+    background: vars.$color-text-light;
+    border-radius: 4px;
+    margin-left: 12px;
+}
+
+.periodMismatchWarning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: vars.$font-size-sm;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.periodOrderError {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: vars.$font-size-sm;
+}
+
+.comparisonToggle {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0 15px 0;
+    padding: 15px 0;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.toggleButton {
+    background: vars.$color-white;
+    color: vars.$color-primary;
+    border: 2px solid vars.$color-primary;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &:hover {
+        background: vars.$color-primary;
+        color: vars.$color-white;
+        box-shadow: 0 2px 8px rgba(vars.$color-primary, 0.3);
+        transform: translateY(-1px);
+    }
+
+    &:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(vars.$color-primary, 0.3);
+    }
+
+    &::before {
+        content: "↕";
+        font-size: vars.$font-size-md;
+        font-weight: vars.$font-weight-bold;
+    }
+
+    &:hover::before {
+        transform: scale(1.1);
+        transition: transform 0.2s ease;
+    }
+}

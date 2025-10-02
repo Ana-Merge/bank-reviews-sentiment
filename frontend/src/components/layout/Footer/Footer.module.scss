@@ -1,0 +1,61 @@
+@use "../../../styles/variables" as vars;
+
+.footer {
+    background: linear-gradient(135deg, vars.$color-white 0%, #f8f9fa 100%);
+    border-top: 2px solid vars.$color-primary;
+    padding: 24px 0;
+    margin-top: 40px;
+    box-shadow: 0 -4px 12px rgba(43, 94, 227, 0.08);
+}
+
+.footerContent {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footerText {
+    font-size: vars.$font-size-md;
+    color: vars.$color-text-dark;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: vars.$font-weight-medium;
+}
+
+.footerLink {
+    color: vars.$color-primary;
+    text-decoration: none;
+    font-weight: vars.$font-weight-semibold;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    background: rgba(43, 94, 227, 0.05);
+
+    &:hover {
+        text-decoration: none;
+        color: vars.$color-white;
+        background: vars.$color-primary;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(43, 94, 227, 0.3);
+    }
+}
+
+.copyright {
+    font-size: vars.$font-size-md;
+    color: vars.$color-text;
+    font-weight: vars.$font-weight-medium;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+        content: "•";
+        color: vars.$color-primary;
+        font-weight: vars.$font-weight-bold;
+    }
+}

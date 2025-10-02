@@ -1,0 +1,401 @@
+@use "../../../styles/variables" as vars;
+
+.tonalityChartContainer {
+    background: vars.$color-white;
+    border-radius: 12px;
+    padding: 25px 20px 20px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+    min-height: 520px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 50px;
+
+    h3 {
+        font-weight: vars.$font-weight-medium;
+        font-size: vars.$font-size-lg;
+        color: vars.$color-text-dark;
+        margin: 0;
+    }
+}
+
+.productName {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-chart-text;
+    background: vars.$color-chart-background;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-weight: vars.$font-weight-medium;
+}
+
+.chartContent {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-height: 340px;
+}
+
+.chartRow {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 25px;
+    width: 100%;
+    min-height: 300px;
+    flex-wrap: wrap;
+}
+
+.tonalityBarGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 calc(14% - 25px);
+    margin-bottom: 50px;
+    position: relative;
+    min-height: 300px;
+}
+
+.barsContainer {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    height: 260px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.singleBarContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 38px;
+    height: 100%;
+}
+
+.barColumn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    min-height: 200px;
+    position: relative;
+}
+
+.barVisualContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    min-height: 200px;
+}
+
+.barVisual {
+    width: 40px;
+    min-height: 30px;
+    transition: height 0.3s ease;
+    border-radius: 22px 0 0 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+}
+
+.barValue {
+    font-size: vars.$font-size-xs;
+    font-weight: vars.$font-weight-medium;
+    color: vars.$color-text-dark;
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.percentageChangeLabel {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: vars.$font-weight-semibold;
+    white-space: nowrap;
+}
+
+.changePositive {
+    color: vars.$color-sentiment-positive;
+}
+
+.changeNegative {
+    color: vars.$color-sentiment-negative;
+}
+
+.changeNeutral {
+    color: vars.$color-chart-text;
+}
+
+
+.negativeText {
+    color: vars.$color-white !important;
+}
+
+.positive {
+    background-color: vars.$color-sentiment-positive;
+}
+
+.neutral {
+    background-color: vars.$color-sentiment-neutral;
+}
+
+.negative {
+    background-color: vars.$color-sentiment-negative;
+}
+
+.dateLabelContainer {
+    margin-top: 15px;
+    min-height: 50px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+}
+
+.dateLabel {
+    font-size: vars.$font-size-xs;
+    color: vars.$color-chart-text;
+    text-align: center;
+    font-weight: vars.$font-weight-medium;
+    line-height: 1.3;
+    padding: 4px 2px 0 2px;
+
+    &.weekLabel {
+        max-width: 100px;
+    }
+}
+
+.weekLabelContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+}
+
+.weekDates {
+    font-size: 11px;
+    font-weight: vars.$font-weight-medium;
+    margin-bottom: 2px;
+    text-align: center;
+    line-height: 1.1;
+}
+
+.weekYear {
+    font-size: 10px;
+    color: vars.$color-chart-text;
+    opacity: 0.8;
+}
+
+.monthLabel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+}
+
+.monthName {
+    font-size: vars.$font-size-xs;
+    font-weight: vars.$font-weight-medium;
+    margin-bottom: 2px;
+}
+
+.year {
+    font-size: 11px;
+    color: vars.$color-chart-text;
+    opacity: 0.8;
+}
+
+.dayLabel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+}
+
+.dayMonth {
+    font-size: vars.$font-size-xs;
+    font-weight: vars.$font-weight-medium;
+    margin-bottom: 2px;
+}
+
+.legend {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 25px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 1px solid vars.$color-chart-border;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+    color: vars.$color-text-dark;
+}
+
+.legendColorPositive,
+.legendColorNeutral,
+.legendColorNegative {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+}
+
+.legendColorPositive {
+    background-color: vars.$color-sentiment-positive;
+}
+
+.legendColorNeutral {
+    background-color: vars.$color-sentiment-neutral;
+}
+
+.legendColorNegative {
+    background-color: vars.$color-sentiment-negative;
+}
+
+.periodsInfo {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-chart-text;
+    font-weight: vars.$font-weight-medium;
+    padding: 6px 12px;
+    background: vars.$color-chart-background;
+    border-radius: 6px;
+    border: 1px solid vars.$color-chart-border;
+}
+
+.aggregationInfo {
+    font-size: vars.$font-size-sm;
+    color: vars.$color-chart-text;
+    font-weight: vars.$font-weight-medium;
+    padding: 6px 12px;
+    background: vars.$color-chart-background;
+    border-radius: 6px;
+    border: 1px solid vars.$color-chart-border;
+}
+
+.noData {
+    text-align: center;
+    padding: 80px 40px;
+    color: vars.$color-chart-text;
+    font-style: italic;
+    background: vars.$color-chart-background;
+    border-radius: 4px;
+    margin: 40px 0;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: vars.$font-size-lg;
+}
+
+@media (max-width: 1400px) {
+    .chartRow {
+        gap: 22px;
+        row-gap: 65px;
+    }
+
+    .tonalityBarGroup {
+        flex: 0 0 calc(16% - 22px);
+    }
+
+    .barsContainer {
+        gap: 10px;
+    }
+
+    .singleBarContainer {
+        width: 36px;
+    }
+
+    .barVisual {
+        width: 34px;
+    }
+
+    .dateLabel.weekLabel {
+        max-width: 90px;
+    }
+
+    .weekDates {
+        font-size: 10px;
+    }
+
+    .percentageChangeLabel {
+        top: -18px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .chartRow {
+        gap: 20px;
+        row-gap: 60px;
+    }
+
+    .tonalityBarGroup {
+        flex: 0 0 calc(18% - 20px);
+        margin-bottom: 45px;
+    }
+
+    .barsContainer {
+        gap: 8px;
+    }
+
+    .singleBarContainer {
+        width: 34px;
+    }
+
+    .barVisual {
+        width: 32px;
+    }
+
+    .dateLabel {
+        max-width: 85px;
+
+        &.weekLabel {
+            max-width: 80px;
+        }
+    }
+
+    .weekDates {
+        font-size: 9.5px;
+        line-height: 1.1;
+    }
+
+    .weekYear {
+        font-size: 9px;
+    }
+
+    .legend {
+        gap: 20px;
+    }
+
+    .legendItem {
+        font-size: 13px;
+    }
+
+    .percentageChangeLabel {
+        top: -16px;
+        font-size: 10px;
+    }
+}

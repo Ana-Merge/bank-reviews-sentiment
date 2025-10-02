@@ -1,0 +1,157 @@
+@use "../../styles/variables" as vars;
+
+.pageContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    width: 100%;
+    padding: 20px 0;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: vars.$color-text;
+    font-size: vars.$font-size-md;
+}
+
+.error {
+    color: #dc3545;
+    padding: 16px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    margin: 16px 0;
+    text-align: center;
+}
+
+.pageHeader {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0;
+
+    .headerContent {
+        flex: 1;
+    }
+
+    .pageTitle {
+        margin: 0 0 10px 0;
+        color: vars.$color-text-dark;
+        font-size: vars.$font-size-xl;
+        font-weight: vars.$font-weight-medium;
+    }
+
+    .pageMeta {
+        display: flex;
+        gap: 20px;
+        font-size: vars.$font-size-sm;
+        color: vars.$color-text;
+
+        .chartsCount,
+        .pageStatus {
+            background: vars.$color-background;
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+    }
+
+    .addChartButton {
+        background: vars.$color-primary;
+        color: vars.$color-white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: vars.$font-size-sm;
+        font-weight: vars.$font-weight-medium;
+        transition: background 0.2s;
+        white-space: nowrap;
+
+        &:hover {
+            background: vars.$color-primary-hover;
+        }
+    }
+}
+
+.pageContent {
+    min-height: 400px;
+}
+
+.chartsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.emptyState {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    text-align: center;
+
+    .emptyContent {
+        max-width: 400px;
+
+        h3 {
+            margin-bottom: 10px;
+            color: vars.$color-text-dark;
+            font-size: vars.$font-size-lg;
+            font-weight: vars.$font-weight-medium;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: vars.$color-text;
+            line-height: 1.5;
+        }
+    }
+}
+
+.addFirstChartButton {
+    background: vars.$color-primary;
+    color: vars.$color-white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: vars.$font-size-md;
+    font-weight: vars.$font-weight-medium;
+    transition: background 0.2s;
+
+    &:hover {
+        background: vars.$color-primary-hover;
+    }
+}
+
+.actionsSection {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.backButton {
+    background: #6c757d;
+    color: vars.$color-white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: vars.$font-size-sm;
+    font-weight: vars.$font-weight-medium;
+    transition: background 0.2s;
+
+    &:hover {
+        background: #545b62;
+    }
+}
