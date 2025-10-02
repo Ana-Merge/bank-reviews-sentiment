@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
 import { logout, setSessionExpired, clearSessionExpired } from "../../../store/slices/authSlice";
 import { navItems } from "../../../constants/navigation";
-import { AuthModal } from "../../../components";
+import { AuthModal, PredictModal } from "../../../components";
 import styles from "./Header.module.scss";
 import gazpromLogo from "/gazprom-logo.png";
 import uploadIcon from "../../../assets/icons/icon-upload.svg";
@@ -14,6 +14,7 @@ const Header = () => {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user, sessionExpired } = useAppSelector(state => state.auth);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPredictModal, setShowPredictModal] = useState(false);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -59,7 +60,11 @@ const Header = () => {
   };
 
   const handlePredict = () => {
-    // логика загрузки
+    setShowPredictModal(true);
+  };
+
+  const handlePredictModalClose = () => {
+    setShowPredictModal(false);
   };
 
   return (
@@ -128,6 +133,11 @@ const Header = () => {
         isOpen={showAuthModal}
         onClose={handleAuthModalClose}
         defaultTab="login"
+      />
+
+      <PredictModal
+        isOpen={showPredictModal}
+        onClose={handlePredictModalClose}
       />
     </>
   );

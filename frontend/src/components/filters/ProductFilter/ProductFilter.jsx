@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useCategoryFromPath } from "../../../hooks/useCategoryFromPath";
 import styles from "./ProductFilter.module.scss";
-import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
+import LoadingSpinner from "../../ui/LoadingSpinner/LoadingSpinner";
 
 const ProductFilter = ({ onProductSelect, selectedProduct, productTree, allowBackFromRoot = false }) => {
   const [filteredTree, setFilteredTree] = useState([]);

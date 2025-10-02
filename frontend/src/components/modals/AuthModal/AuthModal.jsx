@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "../../hooks/redux";
-import { registerUser, loginUser, clearError, clearSessionExpired } from "../../store/slices/authSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
+import { registerUser, loginUser, clearError, clearSessionExpired } from "../../../store/slices/authSlice";
 import styles from "./AuthModal.module.scss";
 
 const AuthModal = ({ isOpen, onClose, defaultTab = "login" }) => {
