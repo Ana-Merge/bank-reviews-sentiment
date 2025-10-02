@@ -1,6 +1,7 @@
 export { default as Header } from "./layout/Header/Header";
 export { default as AuthModal } from "./AuthModal/AuthModal";
 export { default as AddChartModal } from "./AddChartModal/AddChartModal"
+export { default as ChartRenderer } from "./ChartRenderer/ChartRenderer"
 
 export { default as LoadingSpinner } from "./ui/LoadingSpinner/LoadingSpinner";
 export { default as SourceFilter } from "./ui/SourceFilter/SourceFilter";

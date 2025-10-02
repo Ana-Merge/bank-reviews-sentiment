@@ -1,0 +1,109 @@
+@use "../../styles/variables" as vars;
+
+.chartSection {
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.error {
+    color: #dc3545;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.noData {
+    text-align: center;
+    padding: 40px 20px;
+    color: vars.$color-text;
+    font-size: vars.$font-size-md;
+}
+
+.chartHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.chartTitleSection {
+    flex: 1;
+}
+
+.chartFiltersInfo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+}
+
+.filterItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: vars.$font-size-sm;
+}
+
+.filterLabel {
+    color: vars.$color-text-dark;
+    font-weight: vars.$font-weight-medium;
+    white-space: nowrap;
+}
+
+.filterValue {
+    color: vars.$color-text;
+    background: vars.$color-background;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.chartActions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 10px;
+}
+
+.editChartButton,
+.deleteChartButton {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.editChartButton {
+    color: #6c757d;
+
+    &:hover {
+        color: vars.$color-primary;
+        background: rgba(vars.$color-primary, 0.1);
+    }
+}
+
+.deleteChartButton {
+    color: #999;
+
+    &:hover {
+        color: #ff4444;
+        background: #ffeaea;
+    }
+}
+
+.chartContent {
+    margin-bottom: 15px;
+}

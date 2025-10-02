@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAppSelector } from "../../hooks/redux";
 import { authService } from "../../services/auth";
+import { usePageOperations } from "../../hooks/usePageOperations";
 import styles from "./UserDashboardsPage.module.scss";
 
 const UserDashboardsPage = () => {
     const { userId } = useParams();
     const { isAuthenticated, token } = useAppSelector(state => state.auth);
+    const { isSaving, error, savePageToMyDashboards, setError } = usePageOperations(token);
 
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated && token && userId) {
@@ -41,38 +41,9 @@ const UserDashboardsPage = () => {
     };
 
     const handleSavePage = async (page) => {
-        if (!confirm(`Сохранить страницу "${page.name}" к себе?`)) {
-            return;
-        }
-
-        setIsSaving(true);
-
-        try {
-            // Генерируем новые ID для страницы и всех графиков
-            const newPageId = Date.now().toString();
-            const newPage = {
-                ...page,
-                id: newPageId,
-                name: `${page.name} (скопировано у ${user.username})`,
-                charts: page.charts?.map(chart => ({
-                    ...chart,
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
-                })) || []
-            };
-
-            // Загружаем текущую конфигурацию пользователя
-            const currentConfig = await authService.getUserDashboardsConfig(token);
-            const updatedPages = [...(currentConfig.pages || []), newPage];
-
-            // Сохраняем обновленную конфигурацию
-            await authService.saveUserDashboardsConfig(token, { pages: updatedPages });
-
+        const success = await savePageToMyDashboards(page, user.username);
+        if (success) {
             alert(`Страница "${page.name}" успешно сохранена!`);
-        } catch (err) {
-            setError(`Ошибка сохранения страницы: ${err.message}`);
-            console.error("Failed to save page:", err);
-        } finally {
-            setIsSaving(false);
         }
     };
 

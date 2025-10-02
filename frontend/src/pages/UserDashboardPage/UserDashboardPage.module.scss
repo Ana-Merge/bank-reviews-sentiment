@@ -1,13 +1,5 @@
 @use "../../styles/variables" as vars;
 
-@mixin card {
-    background: vars.$color-white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-}
-
 .pageContainer {
     display: flex;
     flex-direction: column;
@@ -17,8 +9,7 @@
     min-height: calc(100vh - 80px);
 }
 
-.loading,
-.noData {
+.loading {
     text-align: center;
     padding: 60px 40px;
     color: vars.$color-text;
@@ -38,7 +29,10 @@
 }
 
 .pageHeader {
-    @include card;
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -120,7 +114,10 @@
 }
 
 .pageContent {
-    @include card;
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .emptyState {
@@ -149,60 +146,11 @@
     gap: 30px;
 }
 
-.chartSection {
-    border: 1px solid vars.$color-chart-border;
-    border-radius: 12px;
-    overflow: hidden;
-    background: vars.$color-chart-background;
-}
-
-.chartHeader {
-    background: vars.$color-white;
-    padding: 20px;
-    border-bottom: 1px solid vars.$color-chart-border;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 15px;
-}
-
-.chartTitleSection {
-    flex: 1;
-}
-
-.chartFiltersInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.filterItem {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.filterLabel {
-    font-size: vars.$font-size-sm;
-    color: vars.$color-text;
-    font-weight: vars.$font-weight-medium;
-}
-
-.filterValue {
-    font-size: vars.$font-size-sm;
-    color: vars.$color-text-dark;
-    background: vars.$color-text-light;
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-.chartContent {
-    padding: 20px;
-    background: vars.$color-white;
-}
-
 .viewModeInfo {
-    @include card;
+    background: vars.$color-white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     background: #fff3cd;
     border: 1px solid #ffeaa7;
 }
