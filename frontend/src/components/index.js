@@ -10,7 +10,6 @@ export { default as DateFilter } from './ui/DateFilter/DateFilter';
 export { default as AggregationFilter } from "./ui/AggregationFilter/AggregationFilter"
 
 export { default as BarChartReviews } from "./charts/BarChartReviews/BarChartReviews";
-export { default as SentimentChart } from "./charts/SentimentChart/SentimentChart";
 export { default as ProductAnalyticsTable } from "./charts/ProductAnalyticsTable/ProductAnalyticsTable";
 export { default as ChangeChart } from "./charts/ChangeChart/ChangeChart"
 export { default as TonalityChart } from "./charts/TonalityChart/TonalityChart"
