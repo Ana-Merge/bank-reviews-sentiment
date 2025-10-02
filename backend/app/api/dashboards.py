@@ -17,7 +17,7 @@ from app.models.user_models import UserRole
 from app.core.dependencies import get_current_user, DbSession, StatsServiceDep, get_db
 from app.services.stats_service import StatsService
 from app.schemas.schemas import ProductStatsResponse, MonthlyPieChartResponse, SmallBarChartsResponse, ClusterResponse, TonalityStackedBarsResponse
-ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://158.160.53.51:8001")
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://158.160.53.51:8002")
 ML_PREDICT_ENDPOINT = f"{ML_SERVICE_URL}/predict"
 ML_TIMEOUT = int(os.getenv("ML_TIMEOUT", 5))
 import logging
