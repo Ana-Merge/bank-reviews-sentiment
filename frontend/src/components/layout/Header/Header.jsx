@@ -3,11 +3,10 @@ import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/redux";
 import { logout, setSessionExpired, clearSessionExpired } from "../../../store/slices/authSlice";
 import { navItems } from "../../../constants/navigation";
-import { AuthModal } from "../../../components";
+import { AuthModal, PredictModal } from "../../../components";
 import styles from "./Header.module.scss";
 import gazpromLogo from "/gazprom-logo.png";
 import uploadIcon from "../../../assets/icons/icon-upload.svg";
-import downloadIcon from "../../../assets/icons/icon-download.svg";
 import accountIcon from "../../../assets/icons/icon-account.svg";
 
 const Header = () => {
@@ -15,6 +14,7 @@ const Header = () => {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user, sessionExpired } = useAppSelector(state => state.auth);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPredictModal, setShowPredictModal] = useState(false);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -59,12 +59,12 @@ const Header = () => {
     }
   };
 
-  const handleDownload = () => {
-    // логика скачивания
+  const handlePredict = () => {
+    setShowPredictModal(true);
   };
 
-  const handlePredict = () => {
-    // логика загрузки
+  const handlePredictModalClose = () => {
+    setShowPredictModal(false);
   };
 
   return (
@@ -86,15 +86,6 @@ const Header = () => {
             >
               <span className={styles.predictText}>Предсказать</span>
               <img src={uploadIcon} alt="" width={20} height={20} />
-            </button>
-
-            <button
-              className={styles.downloadBtn}
-              aria-label="Скачать"
-              onClick={handleDownload}
-            >
-              <span className={styles.downloadText}>Скачать</span>
-              <img src={downloadIcon} alt="" width={20} height={20} />
             </button>
 
             <div className={styles.accountSection}>
@@ -142,6 +133,11 @@ const Header = () => {
         isOpen={showAuthModal}
         onClose={handleAuthModalClose}
         defaultTab="login"
+      />
+
+      <PredictModal
+        isOpen={showPredictModal}
+        onClose={handlePredictModalClose}
       />
     </>
   );

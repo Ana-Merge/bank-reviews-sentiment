@@ -85,6 +85,10 @@ const BarChartReviews = ({ chartData, aggregationType, productName, showComparis
         }
     };
 
+    const formatPercentageYAxis = (value) => {
+        return `${value}%`;
+    };
+
     const renderLineChart = () => {
         if (activeChart === "period2") {
             return (
@@ -171,7 +175,7 @@ const BarChartReviews = ({ chartData, aggregationType, productName, showComparis
                                     }}
                                     tick={{ fontSize: 12, dy: 10 }}
                                 />
-                                <YAxis />
+                                <YAxis tickFormatter={formatPercentageYAxis} />
                                 <Tooltip
                                     formatter={(value) => [`${value}%`, 'В сравнении с прошлым']}
                                     labelFormatter={(label) => {
@@ -370,7 +374,7 @@ const BarChartReviews = ({ chartData, aggregationType, productName, showComparis
                                             <div
                                                 className={`${styles.barVisual} ${styles.barPeriod1}`}
                                                 style={{ height: `${height1}px` }}
-                                                title={`Период 1: ${period1Total} отзывов (${period1Date})`}
+                                                title={`Период для сравнения: ${period1Total} отзывов (${period1Date})`}
                                             />
                                         </div>
                                         <div className={styles.barLabelContainer}>
@@ -397,7 +401,7 @@ const BarChartReviews = ({ chartData, aggregationType, productName, showComparis
                                             <div
                                                 className={`${styles.barVisual} ${styles.barPeriod2}`}
                                                 style={{ height: `${height2}px` }}
-                                                title={`Период 2: ${period2Total} отзывов (${period2Date})`}
+                                                title={`Выбранный период: ${period2Total} отзывов (${period2Date})`}
                                             />
                                         </div>
                                         <div className={styles.barLabelContainer}>

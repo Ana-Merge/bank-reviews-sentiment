@@ -1,0 +1,213 @@
+@import "../../../styles/variables";
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: $color-white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    width: 90%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid $color-chart-border;
+
+    h2 {
+        margin: 0;
+        font-size: $font-size-xl;
+        font-weight: $font-weight-semibold;
+        color: $color-text-dark;
+    }
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: $color-text;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+        background-color: $color-text-light;
+        color: $color-text-dark;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.modalContent {
+    padding: 24px;
+}
+
+.instructions {
+    margin-bottom: 24px;
+
+    p {
+        margin: 0 0 16px 0;
+        color: $color-text;
+        line-height: 1.5;
+        font-size: $font-size-md;
+    }
+}
+
+.example {
+    background-color: $color-text-light;
+    border: 1px solid $color-text-medium;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: $font-size-sm;
+
+    strong {
+        display: block;
+        margin-bottom: 8px;
+        color: $color-text-dark;
+        font-weight: $font-weight-medium;
+    }
+
+    pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        color: $color-text;
+        font-size: $font-size-xs;
+        line-height: 1.4;
+    }
+}
+
+.uploadSection {
+    border: 2px dashed $color-text-medium;
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: $color-white;
+    margin-bottom: 16px;
+
+    &:hover:not(.disabled) {
+        border-color: $color-primary;
+        background-color: rgba(43, 94, 227, 0.02);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(43, 94, 227, 0.1);
+    }
+
+    &.dragOver {
+        border-color: $color-primary;
+        background-color: rgba(43, 94, 227, 0.05);
+        transform: scale(1.01);
+    }
+
+    &.disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+}
+
+.fileInput {
+    display: none;
+}
+
+.uploadContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.uploadText {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.uploadTitle {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text-dark;
+    margin-bottom: 4px;
+}
+
+.uploadSubtitle {
+    font-size: $font-size-md;
+    color: $color-text;
+    line-height: 1.4;
+}
+
+.uploadHint {
+    font-size: $font-size-sm;
+    color: $color-chart-text;
+    margin-top: 8px;
+}
+
+.loadingContainer {
+    // Стили для контейнера LoadingSpinner
+    // LoadingSpinner уже имеет свои собственные стили
+    width: 100%;
+}
+
+// УДАЛЯЕМ кастомный спиннер и его анимацию
+// .spinner { ... }
+// @keyframes spin { ... }
+
+.error {
+    background-color: rgba(236, 43, 100, 0.05);
+    border: 1px solid $color-sentiment-negative;
+    color: $color-sentiment-negative;
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 16px;
+    text-align: center;
+    font-size: $font-size-sm;
+    line-height: 1.4;
+}
+
+.success {
+    background-color: rgba(100, 236, 43, 0.05);
+    border: 1px solid $color-sentiment-positive;
+    color: $color-sentiment-positive;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 16px;
+    text-align: center;
+}
+
+.successTitle {
+    font-size: $font-size-md;
+    font-weight: $font-weight-semibold;
+    margin-bottom: 4px;
+}
+
+.successSubtitle {
+    font-size: $font-size-sm;
+    opacity: 0.9;
+}

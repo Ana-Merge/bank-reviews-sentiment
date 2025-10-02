@@ -4,12 +4,12 @@ import {
     ProductFilter,
     SourceFilter,
     AggregationFilter
-} from "../../components";
+} from "../..";
 import styles from "./AddChartModal.module.scss";
-import productStatsIcon from "../../assets/icons/product-stats.png";
-import tonalityIcon from "../../assets/icons/tonality-chart.png";
-import dynamicsIcon from "../../assets/icons/dynamics-chart.png";
-import generalStatsIcon from "../../assets/icons/general-stats.png";
+import productStatsIcon from "../../../assets/icons/product-stats.png";
+import tonalityIcon from "../../../assets/icons/tonality-chart.png";
+import dynamicsIcon from "../../../assets/icons/dynamics-chart.png";
+import generalStatsIcon from "../../../assets/icons/general-stats.png";
 
 // Компонент для выбора режима фильтра дат
 const DateModeFilter = ({ dateMode, onDateModeChange }) => {
