@@ -30,10 +30,24 @@ services:
       - ./results/sentiment_model:/app/results/sentiment_model
       - ./results/logs:/app/results/logs
     ports:
-      - "8000:8000"
-    network_mode: host  # Для устранения сетевых проблем
+      - "8002:8002"
     deploy:
       resources:
         limits:
-          memory: 8GB
-    command: uvicorn predict:app --host 0.0.0.0 --port 8000
+          memory: 16GB
+    command: uvicorn predict:app --host 0.0.0.0 --port 8002
+
+  predict-single:
+    build:
+      context: ./predict-single
+      dockerfile: Dockerfile
+    image: predict-single
+    volumes:
+      - ./results/topic_model:/app/results/topic_model
+      - ./results/sentiment_model:/app/results/sentiment_model
+      - ./results/logs:/app/results/logs
+    deploy:
+      resources:
+        limits:
+          memory: 16GB
+    command: python predict_single.py

@@ -1,14 +1,25 @@
-import logging
+# preprocess.py
+
 import re
 import nltk
-
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import pymorphy3
+
+# Загрузка необходимых данных NLTK
+nltk.download('punkt', quiet=True)
+nltk.download('punkt_tab', quiet=True)
+nltk.download('stopwords', quiet=True)
+
+# Инициализация лемматизатора
 morph = pymorphy3.MorphAnalyzer()
+
+# Определение пользовательских стоп-слов для проверки как подстрок
 custom_stop_words = {'банка', 'банке', 'банк', 'газпром', 'газпромбанк', 'руб', 'рублей', 'деньги', 'санкт',
                      'счет', 'счета', 'альфа', 'втб', 'сбер', 'тинькоф', 'мтс', 'спб', 'гпб', 'газпром', 'санкт', '\\*'}
-to_replace = ['(', ')', '«', '»', '`', '\'', '№', '.', ',', ':', ';', '?', '/', '\\', '|', '[', ']', '{', '}', '<', '>', '=', '+', '-', '*', '&', '^', '%', '$', '#', '@', '~', '`', '!']
+to_replace = ['(', ')', '«', '»', '`', '\'', '№']
+
+# Загрузка стоп-слов на русском языке
 russian_stopwords = set(stopwords.words('russian'))
 
 def preprocess_text(text):
@@ -47,4 +58,8 @@ def preprocess_text(text):
     processed_text = ' '.join(lemmatized_tokens)
     if not processed_text.strip():
         print(f"Warning: Text became empty after preprocessing for review: original='{text[:50]}...'")
+    # Дополнительная очистка от остаточных символов и лишних пробелов
+    for char in to_replace:
+        processed_text = processed_text.replace(char, '')
+    processed_text = re.sub(r'\s+', ' ', processed_text).strip()  # Удаление лишних пробелов
     return processed_text
