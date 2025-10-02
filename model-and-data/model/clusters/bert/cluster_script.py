@@ -22,7 +22,8 @@ print(f"Using device: {device}")
 # Расширенные стоп-слова
 russian_stop_words = set(stopwords.words('russian'))
 russian_stop_words.update([
-    'рубль', 'рублей', 'газпром', 'банковский', 'клиентский', 'это', 'который', 'мой', 'свой', 'добрый',
+    'банк', 'альфа-банк', 'втб', 'тинькоф', 'сбер', 'гбп', 
+    'рубль', 'рубли', 'рублей', 'газпром', 'банковский', 'клиентский', 'это', 'который', 'мой', 'свой', 'добрый',
     'день', 'месяц', 'год', 'сотрудник', 'клиент', 'время', 'вопрос', 'офис', 'отделение', 'линия', 'горячий',
     'акция', 'условие', 'сумма', 'друг', 'работа', 'привилегия', 'договор', 'заявка', 'менеджер', 'ответ',
     'поддержка', 'обращение', 'номер', 'получение', 'перевод', 'реализация', 'последний', 'неделя', 'удобный',
@@ -46,11 +47,11 @@ def preprocess(text):
             if 'NOUN' in p.tag or 'ADJF' in p.tag:
                 lemma = p.normal_form
                 tokens.append(lemma)
-    processed = ' '.join(tokens)
-    return processed if len(processed.split()) >= 10 else None
+    prepared = ' '.join(tokens)
+    return prepared if len(prepared.split()) >= 10 else None
 
 # Загрузка данных
-file_path = '/app/bert/data/processed/common/all_reviews.jsonl'
+file_path = '/app/bert/data/prepared/common/all_reviews.jsonl'
 output_dir = '/app/bert/data/clusters'
 os.makedirs(output_dir, exist_ok=True)
 

@@ -237,4 +237,4 @@ if __name__ == "__main__":
         'rating': {'disallowed': ['0', '']},
         # 'review_date': {'start_date': '01.01.2024', 'end_date': '31.12.2025'}
     }
-    collect_reviews("data\\bankiru_raw", "data/processed/banki", filters=example_filters)
+    collect_reviews("data\\bankiru_raw", "data/prepared/banki", filters=example_filters)

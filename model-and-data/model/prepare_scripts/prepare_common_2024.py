@@ -478,11 +478,11 @@ def prepare_common(process_sravni=True, process_banki=True,
         filters = {}
     
     if start_date is None:
-        start_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        start_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
     if end_date is None:
-        end_date = datetime(2026, 5, 31, tzinfo=timezone.utc)
+        end_date = datetime(2025, 5, 31, tzinfo=timezone.utc)
     
-    output_dir = 'data/prepared/common'
+    output_dir = 'data/prepared/common/2024'
     os.makedirs(output_dir, exist_ok=True)
     
     # Очистка файлов перед обработкой

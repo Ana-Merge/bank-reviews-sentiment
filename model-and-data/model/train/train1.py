@@ -223,7 +223,7 @@ def evaluate_model(model, test_loader, device, topic_classes):
 if __name__ == "__main__":
     # Загрузка данных
     X_train, X_test, y_train_topics, y_test_topics, y_train_sents, y_test_sents, topic_classes = prepare_data(
-        "data/processed/processed_gazprom.csv"
+        "data/prepared/processed_gazprom.csv"
     )
 
     # Токенизатор

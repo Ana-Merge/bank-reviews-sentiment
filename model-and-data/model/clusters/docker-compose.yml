@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     image: tf-idf-cluster
     volumes:
-      - ../data/processed/common:/app/tf-idf/data/processed/common
+      - ../data/prepared/common:/app/tf-idf/data/prepared/common
       - ../data/clusters:/app/tf-idf/data/clusters
     deploy:
       resources:
@@ -27,7 +27,7 @@ services:
         context: ./bert
         dockerfile: Dockerfile
       volumes:
-      - ../data/processed/common:/app/bert/data/processed/common
+      - ../data/prepared/common:/app/bert/data/prepared/common
       - ../data/clusters:/app/bert/data/clusters
       deploy:
         resources:

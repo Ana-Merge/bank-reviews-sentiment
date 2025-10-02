@@ -211,10 +211,10 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, i
          open(json_file, 'rb') as f:  # binary для ijson
         
         items = ijson.items(f, 'items.item')  # Корректный парсинг списка items
-        processed = 0
+        prepared = 0
         for item in items:
-            processed += 1
-            if subsample and processed > subsample:
+            prepared += 1
+            if subsample and prepared > subsample:
                 break
             
             # Дебаг для проверки считывания
@@ -266,7 +266,7 @@ def process_json_reviews(json_file, filters, start_date, end_date, output_dir, i
                     json.dump(review, f_gazprom, ensure_ascii=False)
                     f_gazprom.write('\n')
     
-    print(f"Файл {json_file}: обработано отзывов: {processed}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}")
+    print(f"Файл {json_file}: обработано отзывов: {prepared}, записано уникальных: {unique_counters['total']}, дубликатов: {dup_counters['total']}")
     gc.collect()
     return (unique_counters, unique_sum_rating_product, unique_sum_rating_bank, unique_sum_rating_product_bank,
             dup_counters, dup_sum_rating_product, dup_sum_rating_bank, dup_sum_rating_product_bank)
@@ -286,7 +286,7 @@ def prepare_data(process_gazprom=True, process_all_banks=True,
     if end_date is None:
         end_date = datetime(2026, 1, 1, tzinfo=timezone.utc)
     
-    output_dir = 'data/processed/sravni'
+    output_dir = 'data/prepared/sravni'
     os.makedirs(output_dir, exist_ok=True)
     
     # Очистка файлов перед обработкой

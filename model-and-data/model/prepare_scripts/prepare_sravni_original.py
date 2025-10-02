@@ -198,16 +198,16 @@ def process_gazprom_data(gazprom_file='model/data/reviews/gazprom_reviews.json',
     df_with_rating = df_with_rating[required_columns]  # Для файла с оценками
 
     # Сохранение результатов
-    os.makedirs('model/data/processed', exist_ok=True)
-    gazprom_data.to_csv('model/data/processed/processed_gazprom.csv', index=False)
-    df_recent.to_csv('model/data/processed/recent_gazprom.csv', index=False)
-    df_historical.to_csv('model/data/processed/historical_gazprom.csv', index=False)
-    df_with_specific.to_csv('model/data/processed/with_specificProductName_gazprom.csv', index=False)
-    df_without_specific.to_csv('model/data/processed/without_specificProductName_gazprom.csv', index=False)
-    df_with_rating.to_csv('model/data/processed/processed_gazprom_with_rating.csv', index=False)  # Новый файл
+    os.makedirs('model/data/prepared', exist_ok=True)
+    gazprom_data.to_csv('model/data/prepared/processed_gazprom.csv', index=False)
+    df_recent.to_csv('model/data/prepared/recent_gazprom.csv', index=False)
+    df_historical.to_csv('model/data/prepared/historical_gazprom.csv', index=False)
+    df_with_specific.to_csv('model/data/prepared/with_specificProductName_gazprom.csv', index=False)
+    df_without_specific.to_csv('model/data/prepared/without_specificProductName_gazprom.csv', index=False)
+    df_with_rating.to_csv('model/data/prepared/processed_gazprom_with_rating.csv', index=False)  # Новый файл
 
     # Подсчет и сохранение статистики
-    save_statistics(gazprom_data, 'model/data/processed/stats_gazprom.json', is_all_banks=False)
+    save_statistics(gazprom_data, 'model/data/prepared/stats_gazprom.json', is_all_banks=False)
 
     # Очистка памяти
     del gazprom_data, df_recent, df_historical, df_with_specific, df_without_specific, df_with_rating
@@ -272,12 +272,12 @@ def process_all_banks_data(all_banks_file='model/data/reviews/all_reviews.json',
     df_with_rating = df_with_rating[required_columns]
 
     # Сохранение результатов
-    os.makedirs('model/data/processed', exist_ok=True)
-    all_banks_data.to_csv('model/data/processed/aux_all_banks.csv', index=False)
-    df_with_rating.to_csv('model/data/processed/aux_all_banks_with_rating.csv', index=False)  # Новый файл
+    os.makedirs('model/data/prepared', exist_ok=True)
+    all_banks_data.to_csv('model/data/prepared/aux_all_banks.csv', index=False)
+    df_with_rating.to_csv('model/data/prepared/aux_all_banks_with_rating.csv', index=False)  # Новый файл
 
     # Подсчет и сохранение статистики (с groupby, чтобы не дублировать df)
-    save_statistics(all_banks_data, 'model/data/processed/stats_all_banks.json', is_all_banks=True)
+    save_statistics(all_banks_data, 'model/data/prepared/stats_all_banks.json', is_all_banks=True)
 
     # Очистка памяти
     del all_banks_data, df_with_rating

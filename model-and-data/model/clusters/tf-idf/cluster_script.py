@@ -43,7 +43,7 @@ russian_stop_words.update(['банк', 'газпромбанк', 'рубль', '
 morph = pymorphy3.MorphAnalyzer()
 
 # Загрузка данных с обработкой JSONL
-file_path = '/app/tf-idf/data/processed/common/gazprom_reviews.jsonl'
+file_path = '/app/tf-idf/data/prepared/common/gazprom_reviews.jsonl'
 if not os.path.exists(file_path):
     raise FileNotFoundError(f"Файл не найден: {file_path}")
 

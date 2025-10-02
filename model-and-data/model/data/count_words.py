@@ -10,7 +10,7 @@ def clean_text(text):
 
 # Read the JSONL file and process reviews
 word_counter = Counter()
-with open('data/processed/common/all_reviews.jsonl', 'r', encoding='utf-8') as file:
+with open('data/prepared/common/all_reviews.jsonl', 'r', encoding='utf-8') as file:
     for line in file:
         try:
             review = json.loads(line.strip())
@@ -25,13 +25,13 @@ with open('data/processed/common/all_reviews.jsonl', 'r', encoding='utf-8') as f
 most_common_words = word_counter.most_common()
 
 # Save to CSV file
-with open('data/processed/word_frequencies.csv', 'w', encoding='utf-8', newline='') as csvfile:
+with open('data/prepared/word_frequencies.csv', 'w', encoding='utf-8', newline='') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Word', 'Frequency'])
     for word, freq in most_common_words:
         writer.writerow([word, freq])
 
 # Save to text file as Python array
-with open('data/processed/word_list.txt', 'w', encoding='utf-8') as txtfile:
+with open('data/prepared/word_list.txt', 'w', encoding='utf-8') as txtfile:
     words = [f'"{word}"' for word, _ in most_common_words]
     txtfile.write('arr = [' + ', '.join(words) + ']')

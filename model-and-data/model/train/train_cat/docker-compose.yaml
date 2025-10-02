@@ -1,0 +1,39 @@
+# docker-compose.yaml (обновленный, с добавлением сервиса predict-model)
+
+version: '3.8'
+
+services:
+  train-model:
+    build: .
+    image: train-model-gpu
+    volumes:
+      - ../../data/generated/processed:/data  # Путь к данным (относительно compose.yml)
+      - ./results/results_topics:/app/results_topics
+      - ./results/results_sentiments:/app/results_sentiments
+      - ./results/topic_model:/app/topic_model
+      - ./results/sentiment_model:/app/sentiment_model
+      - ./results/logs:/app/logs  # Логи сохраняются здесь на хосте
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    command: python train_cat.py
+
+  predict-model:
+    build: .
+    image: predict-model-gpu
+    volumes:
+      - ./results/topic_model:/app/topic_model
+      - ./results/sentiment_model:/app/sentiment_model
+      - ./results/logs:/app/logs  # Логи
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    command: python predict.py
+    depends_on:
+      - train-model  # Запускается после обучения (если нужно; иначе убрать)
