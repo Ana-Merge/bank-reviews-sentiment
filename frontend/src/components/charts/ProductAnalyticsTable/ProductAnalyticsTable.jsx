@@ -38,10 +38,10 @@ const ProductAnalyticsTable = ({ productStats, showComparison = true }) => {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Продукт</th>
-                <th>Количество отзывов</th>
-                <th>Тональность отзывов</th>
-                <th>Средний рейтинг</th>
+                <th style={{ width: "25%" }}>Продукт</th>
+                <th style={{ width: "20%" }}>Количество отзывов</th>
+                <th style={{ width: "40%" }}>Тональность отзывов</th>
+                <th style={{ width: "15%" }}>Средний рейтинг</th>
               </tr>
             </thead>
             <tbody>
@@ -153,11 +153,11 @@ const ProductAnalyticsTable = ({ productStats, showComparison = true }) => {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Продукт</th>
-              <th>Изменение</th>
-              <th>Количество отзывов</th>
-              <th>Тональность отзывов</th>
-              <th>Средний рейтинг</th>
+              <th style={{ width: "25%" }}>Продукт</th>
+              <th style={{ width: "15%" }}>Изменение</th>
+              <th style={{ width: "15%" }}>Количество отзывов</th>
+              <th style={{ width: "30%" }}>Тональность отзывов</th>
+              <th style={{ width: "15%" }}>Средний рейтинг</th>
             </tr>
           </thead>
           <tbody>
