@@ -12,7 +12,7 @@ services:
     environment:
       - DB_URL=$DB_URL
       - AUTH_TOKEN_SECRET_KEY=$AUTH_TOKEN_SECRET_KEY
-      - CORS_ALLOWED_ORIGINS=["http://localhost:$SERVER_PORT", "http://localhost"]
+      - CORS_ALLOWED_ORIGINS=["http://localhost:$SERVER_PORT", "http://localhost", "http://localhost:8000", "http://localhost:8005", "http://localhost:80"]
     secrets:
       - initial_user
       - auth_token_secret_key
