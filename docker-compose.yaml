@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - DB_URL=${DB_URL}
+      - AUTH_TOKEN_SECRET_KEY=${AUTH_TOKEN_SECRET_KEY}
+      - CORS_ALLOWED_ORIGINS=["http://localhost:80"]
+      - SERVER_PORT=8000
+    secrets:
+      - initial_user
+      - auth_token_secret_key
+      - db_url
+      - db_user
+      - db_password
+      - region
+      - aws_access_key_id
+      - aws_secret_access_key
+      - bucket_name
+      - aws_endpoint
+      - aws_access_domain_name
+    depends_on:
+      database:
+        condition: service_healthy
+    # Убираем volumes для разработки, если нужно - раскомментируйте
+    # volumes:
+    #   - ./backend/app:/app/app
+    #   - ./frontend:/app/frontend
+
+  database:
+    image: postgres:16
+    healthcheck:
+      test: pg_isready -U $POSTGRES_USER -d $POSTGRES_DATABASE
+      interval: 3s
+      retries: 15
+      start_period: 5s
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER_FILE=/run/secrets/db_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_user
+      - db_password
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=qwerty12
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+secrets:
+  auth_token_secret_key:
+    environment: AUTH_TOKEN_SECRET_KEY
+  initial_user:
+    environment: INITIAL_USER
+  db_url:
+    environment: DB_URL
+  db_user:
+    environment: POSTGRES_USER
+  db_password:
+    environment: POSTGRES_PASSWORD
+  region:
+    environment: REGION
+  aws_access_key_id:
+    environment: AWS_ACCESS_KEY_ID
+  aws_secret_access_key:
+    environment: AWS_SECRET_ACCESS_KEY
+  bucket_name:
+    environment: BUCKET_NAME
+  aws_endpoint:
+    environment: AWS_ENDPOINT
+  aws_access_domain_name:
+    environment: AWS_ACCESS_DOMAIN_NAME
+
+volumes:
+  db_data:
+  pgadmin_data:
