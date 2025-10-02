@@ -28,8 +28,8 @@ const SourceFilter = ({ source, onSourceChange }) => {
 
     const sourceOptions = [
         { value: null, label: 'Все источники' },
-        { value: 'Banki.ru', label: 'Banki.ru' },
-        { value: 'Sravni.ru', label: 'Sravni.ru' },
+        { value: 'banki', label: 'Banki.ru' },
+        { value: 'sravni', label: 'Sravni.ru' },
     ];
 
     const getDisplayText = () => {

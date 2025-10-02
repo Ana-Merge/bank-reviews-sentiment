@@ -1,10 +1,10 @@
 export const categoryMappings = {
   "/cards": "Карты",
-  "/deposits": "Вклады и счета",
-  "/credits": "Кредиты",
-  "/mortgage": "Ипотека",
-  "/investments": "Инвестиции",
-  "/services": "Услуги",
+  "/deposits": "Вклады",
+  "/credits": "Кредитование",
+  "/services": "Обслуживание",
+  "/app": "Приложение",
+  "/another": "Другой",
 };
 
 export const navItems = [
@@ -17,20 +17,20 @@ export const navItems = [
     path: "/deposits",
   },
   {
-    name: "Кредиты",
+    name: "Кредитование",
     path: "/credits",
   },
   {
-    name: "Ипотека",
-    path: "/mortgage",
-  },
-  {
-    name: "Инвестиции",
-    path: "/investments",
-  },
-  {
-    name: "Услуги",
+    name: "Обслуживание",
     path: "/services",
+  },
+  {
+    name: "Приложение",
+    path: "/app",
+  },
+  {
+    name: "Другой",
+    path: "/another",
   },
   {
     name: "Мои дашборды",
