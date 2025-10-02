@@ -36,13 +36,6 @@ class ProductBase(BaseModel):
     attributes: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v):
-        if len(v) > 150:
-            raise ValueError("Product name too long")
-        return v
-
 class ProductCreate(ProductBase):
     pass
 
@@ -67,24 +60,31 @@ class ProductResponse(ProductBase):
 class ReviewBase(BaseModel):
     text: NonEmptyStr
     date: date
-    product_id: int
+    product_ids: List[int]
     rating: Optional[int] = None
     sentiment: Optional[Sentiment] = None
     sentiment_score: Optional[float] = None
     source: Optional[str] = None
 
+    @field_validator("product_ids")
+    @classmethod
+    def validate_product_ids(cls, v):
+        if not v:
+            raise ValueError("Хотя бы 1 продукт должен быть")
+        return v
+
     @field_validator("rating")
     @classmethod
     def validate_rating(cls, v):
         if v is not None and not (1 <= v <= 5):
-            raise ValueError("Rating must be between 1 and 5")
+            raise ValueError("Рейтинг должен быть между 1 и 5")
         return v
 
     @field_validator("sentiment_score")
     @classmethod
     def validate_sentiment_score(cls, v):
         if v is not None and not (-1 <= v <= 1):
-            raise ValueError("Sentiment score must be between -1 and 1")
+            raise ValueError("Sentiment score должен быть между -1 и 1")
         return v
 
 class ReviewCreate(ReviewBase):
@@ -93,7 +93,26 @@ class ReviewCreate(ReviewBase):
 class ReviewResponse(ReviewBase):
     id: int
     created_at: datetime
+    product_ids: List[int]
+    sentiment: List[Dict[str, Any]]
 
+    class Config:
+        from_attributes = True
+
+class ReviewResponseWithArray(ReviewBase):
+    id: int
+    created_at: datetime
+    product_ids: List[int]
+    sentiment: List[Dict[str, Any]]
+    sentiment_score: Optional[float] = None 
+
+    class Config:
+        from_attributes = True
+
+class ReviewsResponse(BaseModel):
+    total: int
+    reviews: List[ReviewResponseWithArray]
+    
     class Config:
         from_attributes = True
 
@@ -104,7 +123,7 @@ class ClusterBase(BaseModel):
     @classmethod
     def validate_name(cls, v):
         if len(v) > 100:
-            raise ValueError("Cluster name too long")
+            raise ValueError("Название кластера слишком длинное")
         return v
 
 class ClusterCreate(ClusterBase):
@@ -120,12 +139,6 @@ class ReviewBulkItem(BaseModel):
     id: int
     text: NonEmptyStr
 
-    @field_validator("text")
-    @classmethod
-    def validate_text(cls, v):
-        if len(v) > 1000:  # Reasonable limit for review text
-            raise ValueError("Review text too long")
-        return v
     
 class ReviewBulkCreate(BaseModel):
     data: List[ReviewBulkItem]
@@ -134,16 +147,13 @@ class ReviewBulkCreate(BaseModel):
     @classmethod
     def validate_data(cls, v):
         if not v:
-            raise ValueError("Data array must not be empty")
-        if len(v) > 1000:  # Reasonable upper limit for bulk upload
-            raise ValueError("Too many reviews, maximum is 1000")
-        # Check for duplicate IDs
+            raise ValueError("Массив не должен быть пустым")
         ids = [item.id for item in v]
         if len(ids) != len(set(ids)):
-            raise ValueError("Duplicate IDs in data")
+            raise ValueError("Дубликат IDs в данных")
         return v
+
     
-# ReviewCluster Schema
 class ReviewClusterBase(BaseModel):
     review_id: int
     cluster_id: int
@@ -153,7 +163,7 @@ class ReviewClusterBase(BaseModel):
     @classmethod
     def validate_topic_weight(cls, v):
         if not 0 <= v <= 1:
-            raise ValueError("Topic weight must be between 0 and 1")
+            raise ValueError("Веса должен быть между 0 и 1")
         return v
 
 class ReviewClusterCreate(ReviewClusterBase):
@@ -165,7 +175,6 @@ class ReviewClusterResponse(ReviewClusterBase):
     class Config:
         from_attributes = True
 
-# MonthlyStats Schema
 class MonthlyStatsBase(BaseModel):
     product_id: int
     month: date
@@ -176,7 +185,7 @@ class MonthlyStatsBase(BaseModel):
     @classmethod
     def validate_avg_rating(cls, v):
         if v is not None and not (0 <= v <= 5):
-            raise ValueError("Average rating must be between 0 and 5")
+            raise ValueError("Средний рейтинг должен быть между 0 и 5")
         return v
 
 class MonthlyStatsCreate(MonthlyStatsBase):
@@ -188,7 +197,6 @@ class MonthlyStatsResponse(MonthlyStatsBase):
     class Config:
         from_attributes = True
 
-# ClusterStats Schema
 class ClusterStatsBase(BaseModel):
     cluster_id: int
     product_id: int
@@ -203,26 +211,17 @@ class ClusterStatsBase(BaseModel):
     @classmethod
     def validate_percent(cls, v):
         if v is not None and not (0 <= v <= 100):
-            raise ValueError("Percent must be between 0 and 100")
+            raise ValueError("Процент должен быть между 0 и 100")
         return v
 
     @field_validator("avg_rating")
     @classmethod
     def validate_avg_rating(cls, v):
         if v is not None and not (0 <= v <= 5):
-            raise ValueError("Average rating must be between 0 and 5")
+            raise ValueError("Средний рейтинг должен быть 0 и 5")
         return v
-
 class ClusterStatsCreate(ClusterStatsBase):
     pass
-
-# class ClusterStatsResponse(ClusterStatsBase):
-#     id: int
-
-#     class Config:
-#         from_attributes = True
-
-# Notification Schema
 class NotificationBase(BaseModel):
     user_id: int
     message: NonEmptyStr
@@ -232,25 +231,13 @@ class NotificationBase(BaseModel):
     @field_validator("message")
     @classmethod
     def validate_message(cls, v):
-        if len(v) > 255:  # Reasonable limit for message
-            raise ValueError("Notification message too long")
+        if len(v) > 255:
+            raise ValueError("Текст уведомления слишком длинный")
         return v
-
-class NotificationCreate(NotificationBase):
-    pass
-
-class NotificationResponse(NotificationBase):
-    id: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 class NotificationConfigBase(BaseModel):
     product_id: int
     notification_type: NotificationType
-    threshold: float  # e.g., 20.0
+    threshold: float
     period: Literal["daily", "weekly", "monthly"] = "monthly"
     active: bool = True
 
@@ -261,38 +248,43 @@ class NotificationConfigBase(BaseModel):
             raise ValueError("Threshold must be positive")
         return v
 
+    @field_validator("period")
+    @classmethod
+    def validate_period(cls, v):
+        if v not in ["daily", "weekly", "monthly"]:
+            raise ValueError("Period must be daily, weekly or monthly")
+        return v
+class NotificationCreate(NotificationBase):
+    pass
 class NotificationConfigCreate(NotificationConfigBase):
     pass
-
-class NotificationConfigResponse(NotificationConfigBase):
+class NotificationResponse(NotificationBase):
     id: int
-    user_id: int
     created_at: datetime
 
     class Config:
         from_attributes = True
+class NotificationConfigResponse(NotificationConfigBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    product_name: Optional[str] = None
 
-# AuditLog Schema
-# class AuditLogBase(BaseModel):
-#     user_id: Optional[int] = None
-#     action: NonEmptyStr
-
-#     @field_validator("action")
-#     @classmethod
-#     def validate_action(cls, v):
-#         if len(v) > 100:
-#             raise ValueError("Action description too long")
-#         return v
-
-# class AuditLogCreate(AuditLogBase):
-#     pass
-
-# class AuditLogResponse(AuditLogBase):
-#     id: int
-#     timestamp: datetime
-
-#     class Config:
-#         from_attributes = True
+    class Config:
+        from_attributes = True
+class PeriodStatsResponse(BaseModel):
+    period: str
+    start_date: date
+    end_date: date
+    review_count: int
+    positive_count: int
+    neutral_count: int
+    negative_count: int
+    avg_rating: float
+class NotificationConfigWithStats(NotificationConfigResponse):
+    current_period_stats: Optional[PeriodStatsResponse] = None
+    previous_period_stats: Optional[PeriodStatsResponse] = None
+    change_percent: Optional[float] = None
 
 class ProductStatsResponse(BaseModel):
     product_name: str
@@ -307,10 +299,13 @@ class PeriodPieData(BaseModel):
     data: List[float]
     colors: List[str]
     total: int
+    absolute_data: Dict[str, int]
 
 class ChangesPieData(BaseModel):
     labels: List[str]
     percentage_point_changes: List[float]
+    absolute_changes: Dict[str, int]
+
 class ChangeChartResponse(BaseModel):
     total: int
     change_percent: float
@@ -320,30 +315,12 @@ class MonthlyPieChartResponse(BaseModel):
     period2: PeriodPieData
     changes: ChangesPieData
 
+
 class SmallBarChartsResponse(BaseModel):
     title: str
     reviews_count: int
     change_percent: int
     data: List[Dict[str, Any]]
-
-# class RatingTrendResponse(BaseModel):
-#     month: str
-#     avg_rating: float
-#     review_count: int
-
-# class ClusterAnalysisResponse(BaseModel):
-#     cluster_id: int
-#     cluster_name: str
-#     review_count: int
-#     positive_percent: float
-#     neutral_percent: float
-#     negative_percent: float
-#     avg_rating: float
-
-# class MonthlyReviewCountResponse(BaseModel):
-#     period1: List[Dict[str, Any]]
-#     period2: List[Dict[str, Any]]
-#     changes: List[Dict[str, Any]]
 
 class TonalityStackedBarsResponse(BaseModel):
     period1: List[Dict[str, Any]]
