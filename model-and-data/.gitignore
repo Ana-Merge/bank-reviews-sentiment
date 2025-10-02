@@ -5,6 +5,11 @@
 *.jsonl
 *.pt
 *_.*
+*.png
+*.bin
+*.txt
+*.pth
+*.safetensors
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

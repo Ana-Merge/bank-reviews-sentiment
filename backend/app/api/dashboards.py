@@ -3,9 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import date
+import os
+import aiohttp
+import asyncio
+import sys
 from pydantic import BaseModel
 from app.models.user_models import User
-from app.schemas.schemas import ProductTreeNode, ReviewResponse, ReviewBulkCreate, ChangeChartResponse, ReviewsResponse
+from app.schemas.schemas import ProductTreeNode, ReviewResponse, ReviewBulkCreate, ChangeChartResponse, ReviewsResponse, ReviewAnalysisResponse
 from app.repositories.repositories import ProductRepository, ClusterRepository, ReviewsForModelRepository
 from app.models.models import Product
 from app.services.parser_service import ParserService
@@ -13,6 +17,12 @@ from app.models.user_models import UserRole
 from app.core.dependencies import get_current_user, DbSession, StatsServiceDep, get_db
 from app.services.stats_service import StatsService
 from app.schemas.schemas import ProductStatsResponse, MonthlyPieChartResponse, SmallBarChartsResponse, ClusterResponse, TonalityStackedBarsResponse
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://158.160.53.51:8001")
+ML_PREDICT_ENDPOINT = f"{ML_SERVICE_URL}/predict"
+ML_TIMEOUT = int(os.getenv("ML_TIMEOUT", 5))
+import logging
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 dashboards_router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 
@@ -394,7 +404,7 @@ async def get_reviews(
     end_date: Optional[date] = Query(None),
     cluster_id: Optional[int] = Query(None),
     source: Optional[str] = Query(None, description="Фильтр по источнику отзывов"),
-    sentiment: Optional[str] = Query(None, description="Фильтр по тональности: 'positive', 'neutral', 'negative'"),  # Добавляем параметр
+    sentiment: Optional[str] = Query(None, description="Фильтр по тональности: 'positive', 'neutral', 'negative'"),
     order_by: str = Query("desc", description="Сортировка по дате: 'asc' или 'desc'"),
     page: int = Query(0, ge=0),
     size: int = Query(30, ge=1, le=100),
@@ -410,7 +420,7 @@ async def get_reviews(
             raise HTTPException(status_code=400, detail="sentiment must be 'positive', 'neutral', or 'negative'")
             
         data = await stats_service.get_reviews(
-            db, product_id, start_date, end_date, cluster_id, source, sentiment, order_by, page, size  # Добавляем sentiment
+            db, product_id, start_date, end_date, cluster_id, source, sentiment, order_by, page, size
         )
         return data
     except HTTPException:
@@ -487,3 +497,126 @@ async def create_reviews(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при создании отзывов: {str(e)}")
+    
+
+
+@dashboards_router.post(
+    "/predict",
+    response_model=Dict[str, Any],
+    summary="Анализ отзывов через нейронную модель (внешний сервис)",
+    description="Отправляет отзывы на внешний ML-сервис для анализа и возвращает темы и тональности.",
+    response_description="Результаты анализа отзывов от ML-сервиса."
+)
+async def analyze_reviews(
+    reviews_data: ReviewBulkCreate
+):
+    """
+    Анализ отзывов через внешний ML-сервис.
+
+    **Что передавать**:
+    - **Тело запроса** (JSON):
+      ```json
+      {
+        "data": [
+          {"id": 1, "text": "текст отзыва"},
+          {"id": 2, "text": "текст другого отзыва"}
+        ]
+      }
+      ```
+      - `id`: Уникальный идентификатор отзыва в рамках этого запроса (обязательно).
+      - `text`: Текст отзыва (обязательно, не пустой, максимум 1000 символов).
+
+    **Что получите в ответе**:
+    - **Код 200 OK**: Результаты анализа от ML-сервиса.
+      - **Формат JSON**:
+        ```json
+        {
+          "predictions": [
+            {
+              "id": 1, 
+              "topics": ["Обслуживание", "Мобильное приложение"], 
+              "sentiments": ["положительно", "отрицательно"]
+            },
+            {
+              "id": 2, 
+              "topics": ["Кредитная карта"], 
+              "sentiments": ["нейтрально"]
+            }
+          ]
+        }
+        ```
+    - **Код 502 Bad Gateway**: Если ML-сервис недоступен.
+    - **Код 504 Gateway Timeout**: Если ML-сервис не ответил вовремя.
+    - **Код 500 Internal Server Error**: Если произошла другая ошибка.
+    """
+    try:
+        # Преобразуем Pydantic модель в словарь для сериализации
+        payload = {
+            "data": [
+                {"id": item.id, "text": item.text}
+                for item in reviews_data.data
+            ]
+        }
+        
+        logger.info(f"Sending {len(payload['data'])} reviews to ML service")
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(
+                    ML_PREDICT_ENDPOINT,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=ML_TIMEOUT)
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"Successfully received predictions for {len(result.get('predictions', []))} reviews")
+                        return result
+                    elif response.status == 422:
+                        error_detail = await response.text()
+                        logger.error(f"ML service validation error: {error_detail}")
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Некорректные данные для ML-сервиса: {error_detail}"
+                        )
+                    elif response.status == 504:
+                        logger.error("ML service timeout")
+                        raise HTTPException(
+                            status_code=504,
+                            detail="ML-сервис не ответил вовремя. Попробуйте позже."
+                        )
+                    else:
+                        error_detail = await response.text()
+                        logger.error(f"ML service error {response.status}: {error_detail}")
+                        raise HTTPException(
+                            status_code=502,
+                            detail=f"Ошибка ML-сервиса: {error_detail}"
+                        )
+                        
+            except aiohttp.ClientConnectorError as e:
+                logger.error(f"ML service connection error: {e}")
+                raise HTTPException(
+                    status_code=502,
+                    detail="ML-сервис недоступен. Проверьте подключение."
+                )
+            except aiohttp.ServerTimeoutError:
+                logger.error("ML service timeout")
+                raise HTTPException(
+                    status_code=504,
+                    detail="Превышено время ожидания ответа от ML-сервиса."
+                )
+            except asyncio.TimeoutError:
+                logger.error("ML service timeout")
+                raise HTTPException(
+                    status_code=504,
+                    detail="Таймаут при обращении к ML-сервису."
+                )
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при анализе отзывов: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Внутренняя ошибка сервера: {str(e)}"
+        )

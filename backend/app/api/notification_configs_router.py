@@ -10,7 +10,6 @@ from fastapi import Request
 configs_router = APIRouter(prefix="/api/v1/notification_configs", tags=["notification_configs"])
 
 def get_notification_service(request: Request) -> NotificationService:
-    """Retrieve the NotificationService from app.state."""
     return request.app.state.notification_service
 
 @configs_router.post("/", response_model=NotificationConfigResponse)

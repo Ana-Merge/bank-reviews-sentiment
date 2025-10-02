@@ -1,4 +1,3 @@
-# [file name]: setup.py
 import logging
 import sys
 import os
@@ -33,7 +32,6 @@ from app.core.exceptions import (
 )
 from app.core.settings import AppSettings
 
-# Настройка логирования
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -139,7 +137,6 @@ def _setup_app_dependencies(app: FastAPI, settings: AppSettings):
     parser_service = ParserService(reviews_for_model_repository)
     app.state.parser_service = parser_service
     
-    # ДОБАВИТЬ инициализацию загрузчика данных
     jsonl_loader = JSONLLoader(reviews_for_model_repository)
     data_initializer = DataInitializer()
     app.state.jsonl_loader = jsonl_loader
@@ -192,5 +189,4 @@ async def _app_lifespan(app: FastAPI):
         logger.info("Закрытие подключения к базе данных")
         await db.dispose()
 
-# Создание экземпляра приложения
 app = create_app()

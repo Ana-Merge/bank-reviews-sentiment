@@ -61,37 +61,33 @@ class NotificationService:
         today = date.today()
         
         if period == "monthly":
-            # Сравниваем два полных завершенных месяца
-            last_month = today.replace(day=1) - timedelta(days=1)  # Последний день прошлого месяца
-            current_start = last_month.replace(day=1)  # Начало прошлого месяца
-            current_end = last_month  # Конец прошлого месяца
+            last_month = today.replace(day=1) - timedelta(days=1)
+            current_start = last_month.replace(day=1)
+            current_end = last_month
             
-            prev_month_end = current_start - timedelta(days=1)  # Конец пред-прошлого месяца
-            prev_start = prev_month_end.replace(day=1)  # Начало пред-прошлого месяца
-            prev_end = prev_month_end  # Конец пред-прошлого месяца
+            prev_month_end = current_start - timedelta(days=1) 
+            prev_start = prev_month_end.replace(day=1)
+            prev_end = prev_month_end
             
             logger.info(f"Monthly periods - Current: {current_start} to {current_end}, Previous: {prev_start} to {prev_end}")
             return current_start, current_end, prev_start, prev_end
             
         elif period == "weekly":
-            # Сравниваем две полные завершенные недели (понедельник-воскресенье)
-            last_sunday = today - timedelta(days=today.weekday() + 1)  # Прошлое воскресенье
-            current_start = last_sunday - timedelta(days=6)  # Понедельник прошлой недели
-            current_end = last_sunday  # Воскресенье прошлой недели
+            last_sunday = today - timedelta(days=today.weekday() + 1)
+            current_start = last_sunday - timedelta(days=6)
+            current_end = last_sunday
             
-            prev_start = current_start - timedelta(days=7)  # Понедельник пред-прошлой недели
-            prev_end = current_end - timedelta(days=7)  # Воскресенье пред-прошлой недели
+            prev_start = current_start - timedelta(days=7)
+            prev_end = current_end - timedelta(days=7)
             
             logger.info(f"Weekly periods - Current: {current_start} to {current_end}, Previous: {prev_start} to {prev_end}")
             return current_start, current_end, prev_start, prev_end
             
         elif period == "daily":
-            # Сравниваем вчера с тем же днем недели на прошлой неделе
             yesterday = today - timedelta(days=1)
             current_start = yesterday
             current_end = yesterday
             
-            # Берем тот же день недели неделю назад
             prev_start = yesterday - timedelta(days=7)
             prev_end = prev_start
             
@@ -136,26 +132,22 @@ class NotificationService:
                     logger.warning(f"Product {config.product_id} not found for config {config.id}")
                     continue
 
-                # Получаем всех потомков продукта
                 descendants = await self._product_repo.get_all_descendants(session, config.product_id)
                 product_ids = [config.product_id] + [d.id for d in descendants]
                 
                 logger.info(f"Checking config {config.id} for product {product.name} (IDs: {product_ids})")
 
-                # Получаем периоды для сравнения
                 current_start, current_end, prev_start, prev_end = self.get_comparison_periods(config.period)
                 
                 if not all([current_start, current_end, prev_start, prev_end]):
                     logger.warning(f"Could not determine periods for config {config.id} with period {config.period}")
                     continue
 
-                # Получаем данные для обоих периодов
                 current_data = await self.get_period_data(session, product_ids, current_start, current_end)
                 prev_data = await self.get_period_data(session, product_ids, prev_start, prev_end)
                 
                 logger.info(f"Config {config.id} - Current: {current_data}, Previous: {prev_data}")
 
-                # Проверяем пороги и генерируем уведомления
                 notification_generated = await self.check_config_thresholds(
                     session, config, product, current_data, prev_data, current_start, current_end
                 )

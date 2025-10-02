@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  tf-idf:
+    build:
+      context: ./tf-idf
+      dockerfile: Dockerfile
+    image: tf-idf-cluster
+    volumes:
+      - ../data/prepared/common:/app/tf-idf/data/prepared/common
+      - ../data/clusters:/app/tf-idf/data/clusters
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    stdin_open: true
+    tty: true
+
+  bert:
+      build:
+        context: ./bert
+        dockerfile: Dockerfile
+      volumes:
+      - ../data/prepared/common:/app/bert/data/prepared/common
+      - ../data/clusters:/app/bert/data/clusters
+      deploy:
+        resources:
+          limits:
+            memory: 16G
+          reservations:
+            memory: 8G
+      runtime: nvidia
+      environment:
+        - NVIDIA_VISIBLE_DEVICES=all

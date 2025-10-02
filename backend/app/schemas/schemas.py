@@ -254,6 +254,8 @@ class NotificationConfigBase(BaseModel):
         if v not in ["daily", "weekly", "monthly"]:
             raise ValueError("Period must be daily, weekly or monthly")
         return v
+    
+
 class NotificationCreate(NotificationBase):
     pass
 class NotificationConfigCreate(NotificationConfigBase):
@@ -323,6 +325,16 @@ class SmallBarChartsResponse(BaseModel):
     data: List[Dict[str, Any]]
 
 class TonalityStackedBarsResponse(BaseModel):
+
     period1: List[Dict[str, Any]]
     period2: List[Dict[str, Any]]
     changes: List[Dict[str, Any]]
+
+
+class ReviewPrediction(BaseModel):
+    id: int
+    topics: List[str]
+    sentiments: List[str]
+
+class ReviewAnalysisResponse(BaseModel):
+    predictions: List[ReviewPrediction]

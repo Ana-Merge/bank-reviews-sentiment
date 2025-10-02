@@ -36,7 +36,6 @@ class ParserService:
                 delay_between_requests=delay_between_requests
             )
 
-            # Запускаем парсер в отдельном потоке
             parsed_data = await asyncio.to_thread(self._run_sync_parser, config)
             total_saved = 0
             for product, reviews in parsed_data.items():
@@ -93,14 +92,12 @@ class ParserService:
         try:
             logger.info(f"Starting processing for bank_slug: {bank_slug}, product_name: {product_name}")
             
-            # Получаем непереработанные отзывы
             unprocessed_reviews = await self._reviews_for_model_repo.get_all(
                 session, page=0, size=limit, processed=False
             )
             
             logger.info(f"Total unprocessed reviews: {len(unprocessed_reviews)}")
             
-            # Фильтруем по банку и продукту (оригинальное английское название)
             filtered_reviews = [
                 review for review in unprocessed_reviews 
                 if review.bank_slug == bank_slug and review.product_name == product_name
@@ -123,7 +120,6 @@ class ParserService:
             product_repo = ProductRepository()
             review_repo = ReviewRepository()
             
-            # Обрабатываем отзывы
             reviews_created = 0
             review_ids_to_mark = []
             products_created_count = 0
@@ -132,31 +128,25 @@ class ParserService:
                 try:
                     logger.info(f"Processing review {i+1}/{len(filtered_reviews)}: ID {parsed_review.id}")
                     
-                    # Парсим дополнительные данные из JSON
                     additional_data = parsed_review.additional_data or {}
                     predictions = additional_data.get('predictions', {})
                     
-                    # Получаем массивы из predictions - исправляем ключи
                     topics = predictions.get('all_topics', []) or predictions.get('topics', [])
                     sentiments = predictions.get('all_sentiments', []) or predictions.get('sentiments', [])
                     sources = predictions.get('all_sources', []) or predictions.get('sources', [])
                     
-                    # ИСПРАВЛЕНИЕ: используем правильный ключ с двоеточием
                     review_dates = predictions.get('all_review_dates', []) or predictions.get('review_dates:', []) or predictions.get('review_dates', [])
                     ratings = predictions.get('all_ratings', []) or predictions.get('ratings', [])
                     
                     logger.info(f"Topics: {topics}, Sentiments: {sentiments}, Sources: {sources}")
                     logger.info(f"Review dates found: {review_dates}, Ratings: {ratings}")
                     
-                    # Если нет топиков, пропускаем отзыв
                     if not topics:
                         logger.warning(f"Skipping review {parsed_review.id}: no topics found")
                         continue
                     
-                    # Используем первый элемент массивов для создания основной записи Review
                     primary_source = sources[0] if sources else "unknown"
                     
-                    # ПРИОРИТЕТ ДЛЯ ДАТЫ: сначала из predictions, потом из основной записи
                     if review_dates:
                         primary_date_str = review_dates[0]
                         logger.info(f"Using date from predictions: {primary_date_str}")
@@ -164,7 +154,6 @@ class ParserService:
                         primary_date_str = parsed_review.review_date
                         logger.info(f"Using date from main record: {primary_date_str}")
                     
-                    # Если все равно нет даты, используем parsed_at как fallback
                     if not primary_date_str:
                         primary_date_str = parsed_review.parsed_at.strftime('%d.%m.%Y %H:%M')
                         logger.info(f"Using parsed_at as fallback date: {primary_date_str}")
@@ -173,7 +162,6 @@ class ParserService:
                     
                     logger.info(f"Using primary source: {primary_source}, date: {primary_date_str}, rating: {primary_rating_str}")
                     
-                    # Парсим рейтинг и дату для основной записи
                     rating = self._parse_rating(primary_rating_str)
                     logger.info(f"Parsed rating: {primary_rating_str} -> {rating}")
                     
@@ -183,14 +171,11 @@ class ParserService:
                     
                     review_date = self._parse_review_date(primary_date_str)
                     if not review_date:
-                        # Если не удалось распарсить, используем parsed_at как последний fallback
                         logger.warning(f"Could not parse date: {primary_date_str}, using parsed_at")
                         review_date = parsed_review.parsed_at.date()
                     
                     logger.info(f"Final date for review: {review_date}")
                     
-                    # СОЗДАЕМ ОДНУ ЗАПИСЬ В ОСНОВНОЙ ТАБЛИЦЕ REVIEWS
-                    # Используем агрегированный sentiment для основной записи
                     aggregated_sentiment = self._aggregate_sentiments(sentiments)
                     sentiment_score = self._calculate_sentiment_score(aggregated_sentiment)
                     
@@ -210,23 +195,17 @@ class ParserService:
                     saved_review = await review_repo.save(session, review)
                     logger.info(f"Created review in main table: ID {saved_review.id}")
                     
-                    # СОЗДАЕМ МНОЖЕСТВЕННЫЕ СВЯЗИ В REVIEW_PRODUCTS
-                    # Для каждого топика создаем отдельную запись в review_products
                     for topic_index, topic in enumerate(topics):
-                        # Переводим английское название топика на русский
                         russian_topic_name = self._translate_product_name(topic)
                         logger.info(f"Processing topic {topic_index + 1}/{len(topics)}: '{topic}' -> '{russian_topic_name}'")
                         
-                        # Получаем или создаем продукт для этого топика
                         product = await product_repo.get_by_name(session, russian_topic_name)
                         
                         if not product:
                             from app.models.models import Product, ProductType, ClientType
-                            
-                            # Получаем родителя для продукта
+                        
                             parent_product = await self._get_or_create_parent_product(session, product_repo, russian_topic_name)
                             
-                            # Определяем тип продукта и уровень
                             product_type, level = self._determine_product_type_and_level(russian_topic_name, parent_product)
                             
                             logger.info(f"Creating new product: {russian_topic_name}, type: {product_type}, level: {level}")
@@ -243,10 +222,8 @@ class ParserService:
                             logger.info(f"Created new product: {russian_topic_name} (id: {product.id})")
                         else:
                             logger.info(f"Product already exists: {russian_topic_name} (id: {product.id})")
-                        
-                        # Определяем sentiment для конкретного топика
-                        # Используем sentiment из соответствующего индекса массива
-                        topic_sentiment = aggregated_sentiment  # по умолчанию
+
+                        topic_sentiment = aggregated_sentiment
                         topic_sentiment_score = sentiment_score
                         
                         if topic_index < len(sentiments):
@@ -256,7 +233,6 @@ class ParserService:
                                 topic_sentiment_score = self._calculate_sentiment_score(topic_sentiment)
                                 logger.info(f"Using topic-specific sentiment: {topic_sentiment}")
                         
-                        # СОЗДАЕМ СВЯЗЬ В REVIEW_PRODUCTS для этого топика
                         review_product = ReviewProduct(
                             review_id=saved_review.id,
                             product_id=product.id,
@@ -306,18 +282,15 @@ class ParserService:
         if not sentiments:
             return "neutral"
         
-        # Переводим русские sentiments в английские
         translated_sentiments = [self._translate_sentiment(s) for s in sentiments if self._translate_sentiment(s)]
         
         if not translated_sentiments:
             return "neutral"
-        
-        # Подсчитываем количество каждого типа
+
         positive_count = translated_sentiments.count("positive")
         negative_count = translated_sentiments.count("negative")
         neutral_count = translated_sentiments.count("neutral")
         
-        # Определяем доминирующий sentiment
         if positive_count > negative_count and positive_count > neutral_count:
             return "positive"
         elif negative_count > positive_count and negative_count > neutral_count:
@@ -373,29 +346,6 @@ class ParserService:
             'remote': 'Дистанционное обслуживание',
             'service': 'Очное обслуживание',
             
-            # Конкретные продукты (если есть в данных)
-            'gazpromDEB': 'Дебетовые карты',
-            'DEB Supreme': 'Дебетовые карты',
-            'Для dep школьников': 'Дебетовые карты',
-            'gazpromDEBNEW': 'Дебетовые карты',
-            'Golden Deb': 'Дебетовые карты',
-            'Deb New Brilliant': 'Дебетовые карты',
-            'Золотая golden Deb': 'Дебетовые карты',
-            
-            'карта "Мир"': 'Дебетовые карты',
-            'Mir Supreme': 'Дебетовые карты', 
-            'Для школьников': 'Дебетовые карты',
-            'карта "Мир2"': 'Дебетовые карты',
-            'Mir Supreme2': 'Дебетовые карты',
-            'Для школьников2': 'Дебетовые карты',
-            'Золотая карта': 'Дебетовые карты',
-            'Платиновая карта': 'Дебетовые карты',
-            
-            'Вклад лучшие проценты': 'Вклады',
-            'Вклад Накопилка': 'Вклады',
-            'Накопление для школьников': 'Вклады',
-            'Винстон черчиль': 'Вклады',
-            
             # Общие
             'general': 'Другой'
         }
@@ -410,11 +360,9 @@ class ParserService:
         
         product_lower = product_name.lower()
         
-        # Если есть родитель, то это продукт нижнего уровня
         if parent_product:
             return ProductType.PRODUCT, parent_product.level + 1
         
-        # Определяем категории верхнего уровня согласно новой структуре
         top_level_categories = [
             'карты', 'вклады', 'кредитование', 'обслуживание', 'приложение', 'другой'
         ]
@@ -422,7 +370,6 @@ class ParserService:
         if any(cat in product_lower for cat in top_level_categories):
             return ProductType.CATEGORY, 0
         else:
-            # Если не категория верхнего уровня, но и нет родителя - создаем как продукт уровня 0
             return ProductType.PRODUCT, 0
 
     async def create_base_categories(self, session: AsyncSession):
@@ -448,7 +395,6 @@ class ParserService:
                 'name': 'Вклады', 
                 'type': ProductType.CATEGORY,
                 'level': 0
-                # Без дочерних элементов - отзывы напрямую к вкладам
             },
             {
                 'name': 'Кредитование',
@@ -473,22 +419,18 @@ class ParserService:
                 'name': 'Приложение',
                 'type': ProductType.CATEGORY,
                 'level': 0
-                # Без дочерних элементов - отзывы напрямую к приложению
             },
             {
                 'name': 'Другой',
                 'type': ProductType.CATEGORY,
                 'level': 0
-                # Без дочерних элементов - другие услуги
             }
         ]
         
         created_count = 0
         for category_data in base_categories:
-            # Проверяем существует ли категория
             existing_category = await product_repo.get_by_name(session, category_data['name'])
             if not existing_category:
-                # Создаем основную категорию
                 category = Product(
                     name=category_data['name'],
                     type=category_data['type'],
@@ -499,7 +441,6 @@ class ParserService:
                 created_count += 1
                 logger.info(f"Created base category: {category_data['name']}")
                 
-                # Создаем дочерние категории если есть
                 if 'children' in category_data:
                     for child_data in category_data['children']:
                         existing_child = await product_repo.get_by_name(session, child_data['name'])
@@ -529,44 +470,36 @@ class ParserService:
         from app.models.models import Product, ProductType, ClientType
         
         product_lower = product_name.lower()
-        
-        # ОПРЕДЕЛЯЕМ РОДИТЕЛЯ ДЛЯ КАЖДОГО ТИПА ПРОДУКТА согласно новой структуре
+
         parent_mapping = {
-            # Карты и связанные продукты
             'кредитные карты': ('Карты', ProductType.SUBCATEGORY),
             'дебетовые карты': ('Карты', ProductType.SUBCATEGORY),
             'карты': (None, ProductType.CATEGORY),
             
-            # Кредитование и связанные продукты  
             'кредиты': ('Кредитование', ProductType.SUBCATEGORY),
             'реструктуризация': ('Кредитование', ProductType.SUBCATEGORY),
             'ипотека': ('Кредитование', ProductType.SUBCATEGORY),
             'кредитование': (None, ProductType.CATEGORY),
             
-            # Вклады (без родителя - верхний уровень)
             'вклады': (None, ProductType.CATEGORY),
             'вклады и счета': (None, ProductType.CATEGORY),
             'депозиты': (None, ProductType.CATEGORY),
             
-            # Обслуживание и связанные продукты
             'дистанционное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
             'очное обслуживание': ('Обслуживание', ProductType.SUBCATEGORY),
             'обслуживание': (None, ProductType.CATEGORY),
             'сервис': (None, ProductType.CATEGORY),
             
-            # Приложение (без родителя - верхний уровень)
             'приложение': (None, ProductType.CATEGORY),
             'мобильное приложение': (None, ProductType.CATEGORY),
             'приложения': (None, ProductType.CATEGORY),
             
-            # Другие (без родителя)
             'другой': (None, ProductType.CATEGORY),
             'другие услуги': (None, ProductType.CATEGORY),
             'прочее': (None, ProductType.CATEGORY),
             'other': (None, ProductType.CATEGORY),
         }
         
-        # Ищем подходящего родителя
         parent_name = None
         parent_type = ProductType.CATEGORY
         
@@ -576,11 +509,9 @@ class ParserService:
                 parent_type = p_type
                 break
         
-        # Если родитель не найден, возвращаем None
         if not parent_name:
             return None
         
-        # Получаем или создаем родителя
         parent_product = await product_repo.get_by_name(session, parent_name)
         
         if not parent_product:
@@ -588,7 +519,7 @@ class ParserService:
                 name=parent_name,
                 type=parent_type,
                 client_type=ClientType.BOTH,
-                level=0,  # Родители всегда уровень 0
+                level=0,
                 parent_id=None
             )
             parent_product = await product_repo.save(session, parent_product)
@@ -620,11 +551,9 @@ class ParserService:
         if not rating_input:
             return 0
         
-        # Если рейтинг уже число
         if isinstance(rating_input, int):
-            return min(rating_input, 5)  # Ограничиваем максимум 5
+            return min(rating_input, 5)
         
-        # Если рейтинг строка
         rating_str = str(rating_input)
         if rating_str == 'Без оценки':
             return 0
@@ -689,7 +618,7 @@ class ParserService:
         elif rating >= 1:
             return "negative"
         else:
-            return "neutral"  # fallback
+            return "neutral"
 
     def _calculate_sentiment_score(self, sentiment: str) -> float:
         """Рассчитывает числовой score тональности"""
