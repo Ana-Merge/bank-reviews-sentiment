@@ -550,9 +550,15 @@ async def analyze_reviews(
     - **Код 500 Internal Server Error**: Если произошла другая ошибка.
     """
     try:
+        # Преобразуем Pydantic модель в словарь для сериализации
         payload = {
-            "data": reviews_data.data
+            "data": [
+                {"id": item.id, "text": item.text}
+                for item in reviews_data.data
+            ]
         }
+        
+        logger.info(f"Sending {len(payload['data'])} reviews to ML service")
         
         async with aiohttp.ClientSession() as session:
             try:
@@ -564,36 +570,43 @@ async def analyze_reviews(
                     
                     if response.status == 200:
                         result = await response.json()
+                        logger.info(f"Successfully received predictions for {len(result.get('predictions', []))} reviews")
                         return result
                     elif response.status == 422:
                         error_detail = await response.text()
+                        logger.error(f"ML service validation error: {error_detail}")
                         raise HTTPException(
                             status_code=400,
                             detail=f"Некорректные данные для ML-сервиса: {error_detail}"
                         )
                     elif response.status == 504:
+                        logger.error("ML service timeout")
                         raise HTTPException(
                             status_code=504,
                             detail="ML-сервис не ответил вовремя. Попробуйте позже."
                         )
                     else:
                         error_detail = await response.text()
+                        logger.error(f"ML service error {response.status}: {error_detail}")
                         raise HTTPException(
                             status_code=502,
                             detail=f"Ошибка ML-сервиса: {error_detail}"
                         )
                         
-            except aiohttp.ClientConnectorError:
+            except aiohttp.ClientConnectorError as e:
+                logger.error(f"ML service connection error: {e}")
                 raise HTTPException(
                     status_code=502,
                     detail="ML-сервис недоступен. Проверьте подключение."
                 )
             except aiohttp.ServerTimeoutError:
+                logger.error("ML service timeout")
                 raise HTTPException(
                     status_code=504,
                     detail="Превышено время ожидания ответа от ML-сервиса."
                 )
             except asyncio.TimeoutError:
+                logger.error("ML service timeout")
                 raise HTTPException(
                     status_code=504,
                     detail="Таймаут при обращении к ML-сервису."
