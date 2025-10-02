@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  train-model:
+    build:
+      context: ./train
+      dockerfile: Dockerfile
+    image: train-model-gpu
+    volumes:
+      - ./results/topic_model:/app/results/topic_model
+      - ./results/sentiment_model:/app/results/sentiment_model
+      - ./results/logs:/app/results/logs
+      - ./train/processed_multi_label_reviews_10k.jsonl:/app/processed_multi_label_reviews_10k.jsonl
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+        limits:
+          memory: 14GB
+    command: python train_cat.py
+
+  predict-cpu:
+    build:
+      context: ./predict
+      dockerfile: Dockerfile
+    image: predict-cpu
+    volumes:
+      - ./results/topic_model:/app/results/topic_model
+      - ./results/sentiment_model:/app/results/sentiment_model
+      - ./results/logs:/app/results/logs
+    ports:
+      - "8000:8000"
+    network_mode: host  # Для устранения сетевых проблем
+    deploy:
+      resources:
+        limits:
+          memory: 8GB
+    command: uvicorn predict:app --host 0.0.0.0 --port 8000

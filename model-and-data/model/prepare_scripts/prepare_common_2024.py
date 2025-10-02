@@ -470,7 +470,7 @@ def combine_stats(stats_list):
 # Главная функция
 def prepare_common(process_sravni=True, process_banki=True,
                   sravni_dir='data/sravni_raw',
-                  banki_dir='data/bankiru_raw',
+                  banki_dir='data/bankiru_raw/2024',
                   subsample_sravni=None,
                   subsample_banki=None,
                   filters=None, start_date=None, end_date=None):

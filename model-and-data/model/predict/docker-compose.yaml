@@ -1,0 +1,20 @@
+# docker-compose.yaml
+version: '3.8'
+
+services:
+  predict-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    image: predict-cpu
+    volumes:
+      - ./results/topic_model:/app/topic_model
+      - ./results/sentiment_model:/app/sentiment_model
+      - ./results/logs:/app/logs
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 8GB  # Ограничение RAM для инференса
+    command: uvicorn predict:app --host 0.0.0.0 --port 8001

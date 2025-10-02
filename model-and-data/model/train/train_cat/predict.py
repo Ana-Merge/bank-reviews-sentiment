@@ -54,7 +54,7 @@ load_lists_from_logs()  # Загрузка списков из логов обу
 
 def predict_topics(text):
     device = topic_model.device
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=256)
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
         outputs = topic_model(**inputs)
@@ -65,7 +65,7 @@ def predict_topics(text):
 def predict_sentiment(text, topic):
     device = sent_model.device
     prompt = f"Текст: {text} [SEP] Тема: {topic}"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=256)
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
         outputs = sent_model(**inputs)
