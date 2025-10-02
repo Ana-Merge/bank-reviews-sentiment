@@ -28,6 +28,11 @@ const ReviewsPage = () => {
     });
     const [pageInput, setPageInput] = useState("");
 
+    const sourceDictionary = {
+        'banki': 'Banki.ru',
+        'sravni': 'Sravni.ru'
+    };
+
     const queryParams = new URLSearchParams(location.search);
     const initialProductId = queryParams.get('product_id');
     const startDate = queryParams.get('start_date');
@@ -219,6 +224,10 @@ const ReviewsPage = () => {
         return 'rating-positive';
     };
 
+    const getSourceDisplayName = (source) => {
+        return sourceDictionary[source] || source;
+    };
+
     return (
         <div className={styles.pageContainer}>
             <div className={styles.header}>
@@ -301,7 +310,7 @@ const ReviewsPage = () => {
                         {reviews.map((review) => (
                             <div key={review.id} className={styles.reviewCard}>
                                 <div className={styles.reviewHeader}>
-                                    <span className={styles.source}>{review.source}</span>
+                                    <span className={styles.source}>{getSourceDisplayName(review.source)}</span>
                                     <span className={styles.date}>{review.date}</span>
                                     <span className={`${styles.rating} ${styles[getRatingClass(review.rating)]}`}>
                                         Рейтинг: {review.rating}/5

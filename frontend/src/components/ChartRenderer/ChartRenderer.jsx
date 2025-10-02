@@ -14,9 +14,7 @@ import styles from "./ChartRenderer.module.scss";
 
 const getSourceDisplayName = (source) => {
     const sourceMap = {
-        null: 'Все источники',
-        'Banki.ru': 'Banki.ru',
-        'Sravni.ru': 'Sravni.ru'
+        null: 'Все источники'
     };
     return sourceMap[source] || 'Все источники';
 };
