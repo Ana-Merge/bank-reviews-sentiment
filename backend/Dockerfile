@@ -57,10 +57,10 @@ RUN pip install playwright==1.49.1 && \
 
 FROM base AS dev
 ENV PYTHONPATH=/app:/app/app
-EXPOSE 8000
+EXPOSE 8005
 ENTRYPOINT ["./scripts/entrypoint.sh"]
 
 FROM base AS run
 ENV PYTHONPATH=/app:/app/app
-EXPOSE 8000
+EXPOSE 8005
 ENTRYPOINT ["./scripts/entrypoint.sh"]

@@ -14,4 +14,4 @@ python app/scripts/seed.py
 
 # Запуск Uvicorn из корневой директории /app
 echo "Starting FastAPI server..."
-exec uvicorn app.core.setup:create_app --host 0.0.0.0 --port ${SERVER_PORT:-8000} --reload
+exec uvicorn app.core.setup:create_app --host 0.0.0.0 --port ${SERVER_PORT:-8005} --reload

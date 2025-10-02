@@ -46,7 +46,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         title="Review Analytics Auth",
         lifespan=_app_lifespan,
         servers=[
-            {"url": "http://localhost:8000", "description": "Локальный сервер"},
+            {"url": "http://localhost:8005", "description": "Локальный сервер"},
         ],
         responses={
             400: {"description": "Неверный формат входных данных"},
